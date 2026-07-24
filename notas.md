@@ -10,3 +10,6 @@ npm run dev:full
 # En producción: construir frontend + levantar servidor
 npm run build
 npm run start:server
+
+# Compilar release
+npm run release

@@ -7,7 +7,10 @@
     "dev": "vite --port=8080 --host=0.0.0.0",
     "dev:server": "tsx watch server/index.ts",
     "dev:full": "concurrently \"npm run dev:server\" \"npm run dev\"",
-    "build": "vite build",
+    "build": "vite build && npm run build:server",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --outfile=dist-server/index.mjs --external:sql.js --external:better-sqlite3 --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "start": "node dist-server/index.mjs",
+    "release": "node scripts/package-release.js",
     "start:server": "tsx server/index.ts",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
@@ -36,6 +39,7 @@
     "@types/node": "^22.14.0",
     "@types/uuid": "^10.0.0",
     "concurrently": "^10.0.3",
+    "esbuild": "^0.28.1",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.23.1",
     "typescript": "~5.8.2"
