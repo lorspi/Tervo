@@ -140,7 +140,7 @@ export default function OpenCloseSessionModal({
             <div className="flex items-start gap-2.5 bg-secondary p-3 rounded-xl border border-border">
               <AlertCircle className="h-4 w-4 text-bento-blue shrink-0 mt-0.5" />
               <p className="text-[10px] leading-relaxed text-muted-foreground">
-                Al abrir la caja inicias una nueva jornada de ventas. Configura el efectivo inicial para cambio/vuelto.
+                Al abrir la caja inicias una nueva jornada de ventas. Configura el efectivo inicial para cambio/devueltas.
               </p>
             </div>
 

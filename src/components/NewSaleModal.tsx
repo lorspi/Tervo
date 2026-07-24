@@ -5,6 +5,7 @@ import {
   CreditCard, DollarSign, Percent, AlertCircle 
 } from 'lucide-react';
 import { addAuditLog } from '../utils/db';
+import { useUI } from './UIProvider';
 
 interface NewSaleModalProps {
   state: SystemState;
@@ -22,6 +23,7 @@ export default function NewSaleModal({
   onTriggerPrint
 }: NewSaleModalProps) {
   
+  const { toast } = useUI();
   // Search state
   const [productSearch, setProductSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string>('c_generic'); // default general client
@@ -143,7 +145,7 @@ export default function NewSaleModal({
   // Add product to cart
   const handleAddToCart = (product: Product) => {
     if (product.stock <= 0) {
-      alert(`⚠️ El producto "${product.name}" no cuenta con existencias en inventario actualmente (Stock: 0).`);
+      toast(`El producto "${product.name}" no cuenta con existencias en inventario actualmente (Stock: 0).`, 'warning');
       return;
     }
 
@@ -151,7 +153,7 @@ export default function NewSaleModal({
     const existing = cart.find(item => item.product.id === product.id);
     if (existing) {
       if (existing.quantity >= product.stock) {
-        alert(`⚠️ No puedes vender más de ${product.stock} unidades de "${product.name}" (Stock límite alcanzado).`);
+        toast(`No puedes vender más de ${product.stock} unidades de "${product.name}" (Stock límite alcanzado).`, 'warning');
         return;
       }
       setCart(prev => prev.map(item => 
@@ -178,7 +180,7 @@ export default function NewSaleModal({
     }
 
     if (newQty > item.product.stock) {
-      alert(`⚠️ No puedes agregar más unidades. El stock disponible de "${item.product.name}" es de ${item.product.stock} unidades.`);
+      toast(`No puedes agregar más unidades. El stock disponible de "${item.product.name}" es de ${item.product.stock} unidades.`, 'warning');
       return;
     }
 
@@ -213,17 +215,17 @@ export default function NewSaleModal({
     e.preventDefault();
 
     if (cart.length === 0) {
-      alert("El carrito está vacío. Agrega al menos un producto.");
+      toast("El carrito está vacío. Agrega al menos un producto.", 'warning');
       return;
     }
 
     if (paymentDifference !== 0) {
-      alert(`⚠️ Los montos ingresados para los métodos de pago ($${paymentSum}) no igualan el total a pagar del carrito ($${cartTotals.totalPayable}). Por favor, cuadra la diferencia de: $${paymentDifference}`);
+      toast(`Los montos ingresados para los métodos de pago ($${paymentSum}) no igualan el total a pagar del carrito ($${cartTotals.totalPayable}). Por favor, cuadra la diferencia de: $${paymentDifference}`, 'warning');
       return;
     }
 
     if (!state.currentSessionId) {
-      alert("⚠️ No hay un arqueo/turno de caja activo actualmente. Por favor, abre caja antes de realizar una venta.");
+      toast("No hay un cuadre/turno de caja activo actualmente. Por favor, abre caja antes de realizar una venta.", 'warning');
       return;
     }
 

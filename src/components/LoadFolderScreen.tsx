@@ -1,4 +1,4 @@
-import { FolderOpen, HardDrive, ShieldCheck, Store } from 'lucide-react';
+import { FolderOpen, HardDrive, ShieldCheck } from 'lucide-react';
 import { useAppStore } from '../store';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -41,8 +41,9 @@ export default function LoadFolderScreen() {
       <div className="bg-card border border-border rounded-2xl p-5 sm:p-8 shadow-card-hover max-w-md w-full relative z-10 animate-fade-in">
         {/* Header */}
         <div className="text-center space-y-3 mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto shadow-card">
-            <Store className="w-7 h-7 text-primary-foreground" />
+          <div className="flex items-center justify-center mx-auto">
+            <img src="/logo-light.svg" alt="Logo" className="h-14 block dark:hidden" />
+            <img src="/logo-dark.svg" alt="Logo" className="h-14 hidden dark:block" />
           </div>
           <h1 className="text-2xl font-bold text-foreground font-heading">Sistema POS</h1>
           <p className="text-xs text-muted-foreground leading-relaxed">

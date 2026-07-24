@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { SystemState, Client } from '../types';
 import { Plus, Edit2, Search, Trash2, Check, UserPlus, Phone, Mail, MapPin, CreditCard } from 'lucide-react';
 import { addAuditLog } from '../utils/db';
+import { useUI } from './UIProvider';
 
 interface ClientsViewProps {
   state: SystemState;
@@ -9,6 +10,7 @@ interface ClientsViewProps {
 }
 
 export default function ClientsView({ state, onUpdateState }: ClientsViewProps) {
+  const { toast, confirm } = useUI();
   const [searchTerm, setSearchTerm] = useState('');
   
   // Create / Edit states
@@ -64,7 +66,7 @@ export default function ClientsView({ state, onUpdateState }: ClientsViewProps) 
   const handleSaveClient = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName) {
-      alert("Por favor ingresa al menos el Nombre del Cliente.");
+      toast("Por favor ingresa al menos el Nombre del Cliente.", 'warning');
       return;
     }
 
@@ -111,13 +113,14 @@ export default function ClientsView({ state, onUpdateState }: ClientsViewProps) 
     setIsCreateOpen(false);
   };
 
-  const handleDeleteClient = (clientId: string, clientName: string) => {
+  const handleDeleteClient = async (clientId: string, clientName: string) => {
     if (clientId === 'c_generic') {
-      alert("No puedes eliminar el Cliente General por defecto.");
+      toast("No puedes eliminar el Cliente General por defecto.", 'error');
       return;
     }
 
-    if (!confirm(`¿Estás seguro de que deseas eliminar al cliente "${clientName}" del sistema?`)) {
+    const confirmed = await confirm({ title: 'Eliminar Cliente', message: `¿Estás seguro de que deseas eliminar al cliente "${clientName}" del sistema?`, variant: 'danger' });
+    if (!confirmed) {
       return;
     }
 

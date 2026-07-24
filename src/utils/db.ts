@@ -18,7 +18,6 @@ export function getInitialState(): SystemState {
       lowStockAlert: 5,
       storeName: 'Mi Tienda POS',
       storeInfo: '',
-      systemEnabled: true,
     },
     currentUser: null,
     currentSessionId: null,

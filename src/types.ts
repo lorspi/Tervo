@@ -1,4 +1,4 @@
-export type UserRole = 'super-admin' | 'admin' | 'vendedor';
+export type UserRole = 'admin' | 'vendedor';
 
 export interface User {
   id: string;
@@ -97,7 +97,6 @@ export interface SystemConfig {
   lowStockAlert: number;
   storeName: string;
   storeInfo: string;
-  systemEnabled: boolean;
 }
 
 export interface SystemState {

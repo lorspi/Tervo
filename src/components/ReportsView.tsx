@@ -162,7 +162,7 @@ export default function ReportsView({ state }: ReportsViewProps) {
               activeTab === 'sessions' ? 'text-foreground border-b-2 border-blue-600' : 'text-muted-foreground hover:text-muted-foreground'
             }`}
           >
-            Arqueos de Caja
+            Cuadres de Caja
           </button>
           <button
             onClick={() => setActiveTab('logs')}
@@ -329,7 +329,7 @@ export default function ReportsView({ state }: ReportsViewProps) {
                         <tr className="bg-secondary text-muted-foreground text-[10px] uppercase font-bold tracking-wider border-b border-border">
                           <th className="p-3">Método de Pago</th>
                           <th className="p-3 text-right">Esperado (Sistema)</th>
-                          <th className="p-3 text-right">Real (Arqueo)</th>
+                          <th className="p-3 text-right">Real (Cuadre)</th>
                           <th className="p-3 text-right font-bold">Diferencia</th>
                         </tr>
                       </thead>
@@ -455,7 +455,7 @@ export default function ReportsView({ state }: ReportsViewProps) {
               <div className="bg-secondary border-2 border-dashed border-border rounded-xl p-16 flex flex-col items-center justify-center text-center text-muted-foreground h-full">
                 <FileText className="h-12 w-12 text-gray-300 mb-4" />
                 <h3 className="font-bold text-foreground text-xs uppercase tracking-wider">Selecciona un Turno de Caja</h3>
-                <p className="text-xs mt-1.5 max-w-xs text-muted-foreground font-medium leading-normal">Escoge un registro de la lista de la izquierda para desplegar el arqueo de cuentas, auditoría y gráfico consolidado.</p>
+                <p className="text-xs mt-1.5 max-w-xs text-muted-foreground font-medium leading-normal">Escoge un registro de la lista de la izquierda para desplegar el cuadre de cuentas, auditoría y gráfico consolidado.</p>
               </div>
             )}
           </div>

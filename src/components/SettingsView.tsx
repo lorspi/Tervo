@@ -1,23 +1,23 @@
 import React, { useState, useRef } from 'react';
 import { SystemState } from '../types';
 import { 
-  Check, Save, Database, ShieldAlert, ShoppingBag, Eye, RefreshCw, 
-  Settings, AlertCircle, FileSpreadsheet, Download, Upload 
+  Save, Database, 
+  Settings, Download, Upload 
 } from 'lucide-react';
 import { addAuditLog, saveState } from '../utils/db';
+import { useUI } from './UIProvider';
 
 interface SettingsViewProps {
   state: SystemState;
   onUpdateState: (newState: SystemState) => void;
-  userRole: string;
 }
 
-export default function SettingsView({ state, onUpdateState, userRole }: SettingsViewProps) {
+export default function SettingsView({ state, onUpdateState }: SettingsViewProps) {
+  const { toast, confirm } = useUI();
   // Input states
   const [formLowStock, setFormLowStock] = useState<number>(state.config.lowStockAlert);
   const [formStoreName, setFormStoreName] = useState(state.config.storeName);
   const [formStoreInfo, setFormStoreInfo] = useState(state.config.storeInfo);
-  const [formSystemEnabled, setFormSystemEnabled] = useState(state.config.systemEnabled);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -30,7 +30,6 @@ export default function SettingsView({ state, onUpdateState, userRole }: Setting
       lowStockAlert: formLowStock,
       storeName: formStoreName,
       storeInfo: formStoreInfo,
-      systemEnabled: formSystemEnabled
     };
 
     let newState: SystemState = {
@@ -41,11 +40,11 @@ export default function SettingsView({ state, onUpdateState, userRole }: Setting
     newState = addAuditLog(
       newState, 
       'config', 
-      `Configuraciones del sistema actualizadas por ${state.currentUser?.name}. Stock mínimo: ${formLowStock}, Nombre de tienda: "${formStoreName}", Sistema Activo: ${formSystemEnabled ? 'Sí' : 'No'}`
+      `Configuraciones del sistema actualizadas por ${state.currentUser?.name}. Stock mínimo: ${formLowStock}, Nombre de tienda: "${formStoreName}"`
     );
 
     onUpdateState(newState);
-    alert("Configuración del sistema guardada con éxito.");
+    toast("Configuración del sistema guardada con éxito.");
   };
 
   // Generate and download full JSON backup
@@ -64,11 +63,12 @@ export default function SettingsView({ state, onUpdateState, userRole }: Setting
   };
 
   // Import JSON backup
-  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!confirm("⚠️ ¡ADVERTENCIA! Al restaurar este respaldo, se sobrescribirá toda la base de datos actual (inventario, ventas, cajas, clientes y usuarios). ¿Estás seguro de continuar?")) {
+    const confirmed = await confirm({ title: 'Restaurar Respaldo', message: '⚠️ ¡ADVERTENCIA! Al restaurar este respaldo, se sobrescribirá toda la base de datos actual (inventario, ventas, cajas, clientes y usuarios). ¿Estás seguro de continuar?', variant: 'danger' });
+    if (!confirmed) {
       // Clear input so user can choose again
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
@@ -99,13 +99,13 @@ export default function SettingsView({ state, onUpdateState, userRole }: Setting
 
           saveState(restoredState);
           onUpdateState(restoredState);
-          alert("✅ Respaldo del sistema restaurado con éxito. El sistema ha actualizado todos los registros.");
+          toast("Respaldo del sistema restaurado con éxito. El sistema ha actualizado todos los registros.");
           window.location.reload(); // reload to clear cached memories/logs cleanly
         } else {
-          alert("❌ El archivo cargado no posee el formato de respaldo de base de datos válido para este sistema.");
+          toast("El archivo cargado no posee el formato de respaldo de base de datos válido para este sistema.", 'error');
         }
       } catch (err) {
-        alert("❌ Error al leer o deserializar el archivo de respaldo. Asegúrese de cargar un archivo JSON válido.");
+        toast("Error al leer o deserializar el archivo de respaldo. Asegúrese de cargar un archivo JSON válido.", 'error');
       }
 
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -176,37 +176,6 @@ export default function SettingsView({ state, onUpdateState, userRole }: Setting
                 <p className="text-[11px] text-muted-foreground">Este párrafo con dirección, datos fiscales o de agradecimiento se renderizará en la parte superior e inferior de la boleta de venta PDF.</p>
               </div>
             </div>
-
-            {/* SYSTEM TOGGLE - ONLY FOR SUPER ADMIN */}
-            {userRole === 'super-admin' && (
-              <div className="border-t border-border pt-5 space-y-3">
-                <h3 className="font-bold text-red-700 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <ShieldAlert className="h-4 w-4" />
-                  Control de Estado del Sistema (Super Admin Only)
-                </h3>
-                
-                <div className="bg-destructive/10/40 border border-red-100 rounded-xl p-4 flex items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold text-foreground">Inhabilitar / Habilitar Operación General</p>
-                    <p className="text-[11px] text-muted-foreground leading-normal">
-                      Si inhabilitas el sistema, los vendedores y administradores normales no podrán acceder al POS, bloquearás la realización de ventas y se les mostrará un mensaje de mantención.
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-bold ${formSystemEnabled ? 'text-emerald-700' : 'text-red-700'}`}>
-                      {formSystemEnabled ? 'HABILITADO' : 'DESHABILITADO'}
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={formSystemEnabled}
-                      onChange={(e) => setFormSystemEnabled(e.target.checked)}
-                      className="h-5 w-5 rounded border-slate-300 text-destructive focus:ring-red-500 cursor-pointer"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div className="border-t border-border pt-4 flex items-center justify-end">
               <button

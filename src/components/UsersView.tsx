@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { SystemState, User, UserRole } from '../types';
-import { Plus, Edit2, Check, UserPlus, Shield, UserX, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Plus, Edit2, Check, UserPlus, Shield, UserX, ShieldCheck } from 'lucide-react';
 import { addAuditLog } from '../utils/db';
+import { useUI } from './UIProvider';
 
 interface UsersViewProps {
   state: SystemState;
@@ -9,6 +10,7 @@ interface UsersViewProps {
 }
 
 export default function UsersView({ state, onUpdateState }: UsersViewProps) {
+  const { toast, confirm } = useUI();
   // Create / Edit states
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -42,7 +44,7 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
   const handleSaveUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName || !formUsername || !formPassword) {
-      alert("Por favor completa todos los campos obligatorios.");
+      toast("Por favor completa todos los campos obligatorios.", 'warning');
       return;
     }
 
@@ -52,7 +54,7 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
     // Check duplicate username
     const duplicate = state.users.find(u => u.username.toLowerCase() === formUsername.toLowerCase() && (!editingUser || u.id !== editingUser.id));
     if (duplicate) {
-      alert(`El nombre de usuario "${formUsername}" ya está en uso.`);
+      toast(`El nombre de usuario "${formUsername}" ya está en uso.`, 'error');
       return;
     }
 
@@ -98,18 +100,14 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
     setIsCreateOpen(false);
   };
 
-  const handleDeleteUser = (userId: string, userName: string) => {
+  const handleDeleteUser = async (userId: string, userName: string) => {
     if (userId === state.currentUser?.id) {
-      alert("No puedes desactivar o eliminar a tu propio usuario activo actualmente.");
+      toast("No puedes desactivar o eliminar a tu propio usuario activo actualmente.", 'error');
       return;
     }
 
-    if (userId === 'u1') {
-      alert("No puedes eliminar al Super Administrador maestro del sistema.");
-      return;
-    }
-
-    if (!confirm(`¿Estás seguro de que deseas eliminar al usuario "${userName}" del sistema?`)) {
+    const confirmed = await confirm({ title: 'Eliminar Usuario', message: `¿Estás seguro de que deseas eliminar al usuario "${userName}" del sistema?`, variant: 'danger' });
+    if (!confirmed) {
       return;
     }
 
@@ -125,13 +123,6 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
 
   const getRoleBadge = (role: UserRole) => {
     switch (role) {
-      case 'super-admin':
-        return (
-          <span className="flex items-center gap-1.5 text-[10px] bg-destructive/10 text-red-700 border border-red-200 px-2.5 py-0.5 rounded-full font-bold">
-            <ShieldAlert className="h-3.5 w-3.5" />
-            SUPER ADMIN
-          </span>
-        );
       case 'admin':
         return (
           <span className="flex items-center gap-1.5 text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-2.5 py-0.5 rounded-full font-bold">
@@ -217,15 +208,13 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
                     <Edit2 className="h-3.5 w-3.5" />
                   </button>
                   
-                  {user.id !== 'u1' && (
-                    <button
-                      onClick={() => handleDeleteUser(user.id, user.name)}
-                      className="p-1.5 hover:bg-destructive/10 text-destructive rounded-xl transition-colors cursor-pointer"
-                      title="Eliminar usuario del sistema"
-                    >
-                      <UserX className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleDeleteUser(user.id, user.name)}
+                    className="p-1.5 hover:bg-destructive/10 text-destructive rounded-xl transition-colors cursor-pointer"
+                    title="Eliminar usuario del sistema"
+                  >
+                    <UserX className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -304,22 +293,19 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
                 >
                   <option value="vendedor">Vendedor (Cajero / Inventario)</option>
                   <option value="admin">Administrador (Configuraciones + Ventas)</option>
-                  <option value="super-admin">Super Administrador (Control Total)</option>
                 </select>
               </div>
 
-              {/* Active check - make sure superadmin Maestro (u1) is always active */}
-              {(!editingUser || editingUser.id !== 'u1') && (
-                <div className="flex items-center justify-between border-t border-border pt-3">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase">Acceso Habilitado</label>
-                  <input
-                    type="checkbox"
-                    checked={formActive}
-                    onChange={(e) => setFormActive(e.target.checked)}
-                    className="h-4 w-4 text-foreground focus:ring-ring rounded border-border"
-                  />
-                </div>
-              )}
+              {/* Active check */}
+              <div className="flex items-center justify-between border-t border-border pt-3">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Acceso Habilitado</label>
+                <input
+                  type="checkbox"
+                  checked={formActive}
+                  onChange={(e) => setFormActive(e.target.checked)}
+                  className="h-4 w-4 text-foreground focus:ring-ring rounded border-border"
+                />
+              </div>
 
             </div>
 

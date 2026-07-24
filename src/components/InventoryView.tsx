@@ -4,14 +4,15 @@ import {
   Plus, Edit2, Download, Upload, Search, Package, Trash2, Check, AlertCircle, HelpCircle
 } from 'lucide-react';
 import { addAuditLog } from '../utils/db';
+import { useUI } from './UIProvider';
 
 interface InventoryViewProps {
   state: SystemState;
   onUpdateState: (newState: SystemState) => void;
-  userRole: string;
 }
 
-export default function InventoryView({ state, onUpdateState, userRole }: InventoryViewProps) {
+export default function InventoryView({ state, onUpdateState }: InventoryViewProps) {
+  const { toast, confirm } = useUI();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   
@@ -81,7 +82,7 @@ export default function InventoryView({ state, onUpdateState, userRole }: Invent
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName || !formBarcode || formPrice <= 0) {
-      alert("Por favor completa los campos obligatorios: Nombre, Código de Barras y un Precio mayor a 0.");
+      toast("Por favor completa los campos obligatorios: Nombre, Código de Barras y un Precio mayor a 0.", 'warning');
       return;
     }
 
@@ -110,7 +111,7 @@ export default function InventoryView({ state, onUpdateState, userRole }: Invent
       // Check duplicate barcode
       const duplicate = state.products.find(p => p.barcode === formBarcode);
       if (duplicate) {
-        alert(`Ya existe un producto registrado con el código de barras "${formBarcode}" (${duplicate.name}).`);
+        toast(`Ya existe un producto registrado con el código de barras "${formBarcode}" (${duplicate.name}).`, 'error');
         return;
       }
 
@@ -142,8 +143,9 @@ export default function InventoryView({ state, onUpdateState, userRole }: Invent
   };
 
   // Delete product (Optional but handy for layout completeness)
-  const handleDeleteProduct = (productId: string, productName: string) => {
-    if (!confirm(`¿Estás seguro de que deseas eliminar el producto "${productName}" del inventario?`)) {
+  const handleDeleteProduct = async (productId: string, productName: string) => {
+    const confirmed = await confirm({ title: 'Eliminar Producto', message: `¿Estás seguro de que deseas eliminar el producto "${productName}" del inventario?`, variant: 'danger' });
+    if (!confirmed) {
       return;
     }
 
@@ -207,7 +209,7 @@ export default function InventoryView({ state, onUpdateState, userRole }: Invent
 
       const lines = text.split(/\r?\n/);
       if (lines.length <= 1) {
-        alert("El archivo CSV está vacío o no contiene filas válidas.");
+        toast("El archivo CSV está vacío o no contiene filas válidas.", 'error');
         return;
       }
 
@@ -279,7 +281,7 @@ export default function InventoryView({ state, onUpdateState, userRole }: Invent
       );
 
       onUpdateState(newState);
-      alert(`CSV Procesado con éxito!\n- Productos Nuevos: ${importedCount}\n- Productos Actualizados: ${updatedCount}`);
+      toast(`CSV Procesado con éxito! Productos Nuevos: ${importedCount}, Actualizados: ${updatedCount}`);
       
       // Reset input value to allow uploading same file again
       if (fileInputRef.current) fileInputRef.current.value = '';

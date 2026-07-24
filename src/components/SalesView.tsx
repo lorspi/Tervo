@@ -5,6 +5,7 @@ import {
   AlertTriangle, Check, User, Calendar, CreditCard, ShoppingBag
 } from 'lucide-react';
 import { addAuditLog } from '../utils/db';
+import { useUI } from './UIProvider';
 
 interface SalesViewProps {
   state: SystemState;
@@ -12,6 +13,7 @@ interface SalesViewProps {
 }
 
 export default function SalesView({ state, onUpdateState }: SalesViewProps) {
+  const { toast } = useUI();
   const [searchTerm, setSearchTerm] = useState('');
   const [sessionFilter, setSessionFilter] = useState<string>('current_or_last'); // 'all' | 'current_or_last' | specificId
   const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<Sale | null>(null);
@@ -95,7 +97,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
   const handleRemoveEditItem = (productId: string) => {
     // Keep at least 1 item in the sale
     if (editItems.length <= 1) {
-      alert("La venta debe contener al menos 1 producto.");
+      toast("La venta debe contener al menos 1 producto.", 'warning');
       return;
     }
     setEditItems(prev => prev.filter(item => item.productId !== productId));
@@ -148,7 +150,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
           // Selling more, check stock
           if (prod.stock < diff) {
             inventoryPossible = false;
-            alert(`No hay suficiente stock para añadir ${diff} unidades adicionales de "${prod.name}". Stock actual: ${prod.stock}`);
+            toast(`No hay suficiente stock para añadir ${diff} unidades adicionales de "${prod.name}". Stock actual: ${prod.stock}`, 'error');
             return;
           }
           prod.stock -= diff;
@@ -266,7 +268,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
 
     onUpdateState(newState);
     setEditingSale(null);
-    alert("Venta editada y existencias actualizadas con éxito.");
+    toast("Venta editada y existencias actualizadas con éxito.");
   };
 
   return (
@@ -302,7 +304,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
             <option value="current_or_last">Caja Actual / Última Caja</option>
             {state.cashSessions.map(sess => (
               <option key={sess.id} value={sess.id}>
-                Arqueo #{sess.id.substring(sess.id.length - 8)} ({formatDate(sess.openDate).split(' ')[0]})
+                Cuadre #{sess.id.substring(sess.id.length - 8)} ({formatDate(sess.openDate).split(' ')[0]})
               </option>
             ))}
           </select>

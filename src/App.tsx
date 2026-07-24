@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   LayoutDashboard, FileText, ShoppingCart, Package, Users,
-  CreditCard, Settings, LogOut, Lock, Unlock, Menu, X, Store, HelpCircle
+  CreditCard, Settings, LogOut, Lock, Unlock, Menu, X
 } from 'lucide-react';
 
 import { useAppStore, applyTheme } from './store';
@@ -95,17 +95,6 @@ export default function App() {
     setIsMobileMenuOpen(false);
   };
 
-  const handleQuickLogin = (userType: 'super' | 'admin' | 'vendedor') => {
-    const u = userType === 'super' ? 'superadmin' : userType === 'admin' ? 'admin' : 'vendedor';
-    setLoginUsername(u);
-    setLoginPassword('123');
-  };
-
-  // System locked check
-  const isSystemLocked = useMemo(() => {
-    return !data.config.systemEnabled && currentUser?.role !== 'super-admin';
-  }, [data.config.systemEnabled, currentUser]);
-
   // Menu items based on role
   const menuItems = useMemo(() => {
     const role = currentUser?.role;
@@ -116,7 +105,7 @@ export default function App() {
       { id: 'inventory', label: 'Inventario', icon: Package },
       { id: 'clients', label: 'Clientes', icon: Users },
     ];
-    if (role === 'admin' || role === 'super-admin') {
+    if (role === 'admin') {
       items.push(
         { id: 'payments', label: 'Métodos de Pago', icon: CreditCard },
         { id: 'users', label: 'Usuarios / Cajeros', icon: Users },
@@ -132,11 +121,11 @@ export default function App() {
       case 'dashboard': return <DashboardView state={state} />;
       case 'reports': return <ReportsView state={state} />;
       case 'sales': return <SalesView state={state} onUpdateState={handleUpdateState} />;
-      case 'inventory': return <InventoryView state={state} onUpdateState={handleUpdateState} userRole={currentUser?.role || 'vendedor'} />;
+      case 'inventory': return <InventoryView state={state} onUpdateState={handleUpdateState} />;
       case 'clients': return <ClientsView state={state} onUpdateState={handleUpdateState} />;
       case 'payments': return <PaymentMethodsView state={state} onUpdateState={handleUpdateState} />;
       case 'users': return <UsersView state={state} onUpdateState={handleUpdateState} />;
-      case 'settings': return <SettingsView state={state} onUpdateState={handleUpdateState} userRole={currentUser?.role || 'vendedor'} />;
+      case 'settings': return <SettingsView state={state} onUpdateState={handleUpdateState} />;
       default: return <DashboardView state={state} />;
     }
   };
@@ -176,8 +165,9 @@ export default function App() {
         </div>
 
         <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-3">
-          <div className="mx-auto h-14 w-14 rounded-2xl bg-primary flex items-center justify-center shadow-card">
-            <Store className="h-7 w-7 text-primary-foreground" />
+          <div className="mx-auto flex items-center justify-center">
+            <img src="/logo-light.svg" alt="Logo" className="h-14 block dark:hidden" />
+            <img src="/logo-dark.svg" alt="Logo" className="h-14 hidden dark:block" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground font-heading">{data.config.storeName}</h2>
           <p className="text-xs text-muted-foreground">Inicia sesión para registrar ventas o administrar el negocio.</p>
@@ -222,28 +212,6 @@ export default function App() {
               </button>
             </form>
 
-            {/* Quick login */}
-            <div className="border-t border-border pt-4 space-y-3">
-              <p className="text-[10px] font-bold text-muted-foreground text-center flex items-center justify-center gap-1">
-                <HelpCircle className="h-3.5 w-3.5" />
-                Credenciales Demo de Prueba
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {(['vendedor', 'admin', 'super'] as const).map(type => (
-                  <button
-                    key={type}
-                    onClick={() => handleQuickLogin(type)}
-                    className="py-1.5 px-2 border border-border hover:bg-accent text-foreground rounded-xl text-[10px] font-semibold transition-colors cursor-pointer"
-                  >
-                    {type === 'super' ? 'Super Admin' : type.charAt(0).toUpperCase() + type.slice(1)}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[9px] text-muted-foreground text-center">
-                La clave para todos los perfiles es <span className="font-mono text-foreground font-semibold">123</span>.
-              </p>
-            </div>
-
             {/* Change folder button */}
             <div className="border-t border-border pt-4">
               <button
@@ -259,39 +227,13 @@ export default function App() {
     );
   }
 
-  // System locked
-  if (isSystemLocked) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-        <div className="bg-card border border-destructive/30 rounded-2xl p-8 max-w-md w-full text-center space-y-5 shadow-card-hover">
-          <div className="mx-auto p-3 bg-destructive/10 text-destructive rounded-full w-fit">
-            <Lock className="h-8 w-8" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-lg font-bold text-foreground font-heading">Sistema Inhabilitado</h2>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              El Super Administrador ha desactivado temporalmente la operación del sistema.
-            </p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="w-full py-2 bg-secondary hover:bg-accent border border-border text-foreground text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <LogOut className="h-4 w-4" />
-            Cerrar Sesión
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // Main app layout
   return (
     <div className="h-screen w-screen flex flex-col bg-background text-foreground overflow-hidden font-body print:bg-white">
       {/* Mobile Header */}
       <header className="lg:hidden flex items-center justify-between px-3 py-2 border-b border-border bg-card print:hidden">
         <div className="flex items-center gap-2">
-          <Store className="h-5 w-5 text-bento-blue" />
+          <img src="/icon.svg" alt="Logo" className="h-5 w-5" />
           <span className="font-bold text-sm truncate max-w-[150px] font-heading">{data.config.storeName}</span>
         </div>
         <div className="flex items-center gap-3">
@@ -318,8 +260,8 @@ export default function App() {
           <div className="flex-1 flex flex-col p-5 space-y-5 overflow-y-auto">
             {/* Brand */}
             <div className="flex items-center gap-3 pb-4 border-b border-border">
-              <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-card shrink-0">
-                <Store className="h-5 w-5 text-primary-foreground" />
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0">
+                <img src="/icon.svg" alt="Logo" className="h-9 w-9" />
               </div>
               <div className="min-w-0">
                 <h1 className="font-bold text-sm leading-snug truncate font-heading">{data.config.storeName}</h1>
@@ -340,7 +282,7 @@ export default function App() {
                     onClick={() => setIsCloseSessionOpen(true)}
                     className="w-full text-center py-1.5 bg-bento-green hover:opacity-90 text-white rounded-xl text-[10px] font-bold transition-all cursor-pointer"
                   >
-                    Arqueo y Cerrar
+                    Cuadre y Cerrar
                   </button>
                 </div>
               ) : (
@@ -397,7 +339,7 @@ export default function App() {
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-foreground truncate">{currentUser.name}</p>
                 <p className="text-[10px] text-muted-foreground font-bold">
-                  {currentUser.role === 'super-admin' ? 'Super Admin' : currentUser.role === 'admin' ? 'Admin' : 'Vendedor'}
+                  {currentUser.role === 'admin' ? 'Admin' : 'Vendedor'}
                 </p>
               </div>
             </div>
@@ -471,7 +413,7 @@ export default function App() {
           {/* Footer */}
           <footer className="h-9 border-t border-border px-4 sm:px-6 flex items-center justify-between text-[10px] text-muted-foreground font-semibold shrink-0 print:hidden bg-card">
             <div className="flex items-center gap-3">
-              <span className="font-mono tracking-wider">POS KORA</span>
+              <span className="font-mono tracking-wider">POS TERVO</span>
               <span className="flex items-center gap-1">
                 <span className={`h-1.5 w-1.5 rounded-full ${activeSession ? 'bg-bento-green animate-pulse-slow' : 'bg-bento-orange'}`} />
                 {activeSession ? 'Operativa' : 'Fuera de turno'}

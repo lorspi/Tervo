@@ -4,9 +4,8 @@ import { SystemState, User, Product, Client, PaymentMethod, Sale, CashSession, A
 
 // Default data for new projects
 const DEFAULT_USERS: User[] = [
-  { id: 'u1', username: 'superadmin', name: 'Super Administrador', role: 'super-admin', password: '123', active: true },
-  { id: 'u2', username: 'admin', name: 'Administrador', role: 'admin', password: '123', active: true },
-  { id: 'u3', username: 'vendedor', name: 'Vendedor', role: 'vendedor', password: '123', active: true },
+  { id: 'u1', username: 'admin', name: 'Administrador', role: 'admin', password: '123', active: true },
+  { id: 'u2', username: 'vendedor', name: 'Vendedor', role: 'vendedor', password: '123', active: true },
 ];
 
 const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = [
@@ -19,7 +18,6 @@ const DEFAULT_CONFIG: SystemConfig = {
   lowStockAlert: 5,
   storeName: 'Mi Tienda POS',
   storeInfo: 'Dirección de tu tienda\nTeléfono: +56 9 0000 0000\nBoleta de Venta',
-  systemEnabled: true,
 };
 
 export interface AppStore {

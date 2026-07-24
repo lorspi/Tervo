@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { SystemState, PaymentMethod } from '../types';
 import { Plus, Edit2, Check, CreditCard, DollarSign, Percent, AlertCircle } from 'lucide-react';
 import { addAuditLog } from '../utils/db';
+import { useUI } from './UIProvider';
 
 interface PaymentMethodsViewProps {
   state: SystemState;
@@ -9,6 +10,7 @@ interface PaymentMethodsViewProps {
 }
 
 export default function PaymentMethodsView({ state, onUpdateState }: PaymentMethodsViewProps) {
+  const { toast } = useUI();
   // Create / Edit states
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -39,7 +41,7 @@ export default function PaymentMethodsView({ state, onUpdateState }: PaymentMeth
   const handleSavePaymentMethod = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName) {
-      alert("Por favor ingresa un nombre para el método de pago.");
+      toast("Por favor ingresa un nombre para el método de pago.", 'warning');
       return;
     }
 
