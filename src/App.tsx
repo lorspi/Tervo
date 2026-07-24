@@ -43,6 +43,12 @@ export default function App() {
     applyTheme(theme);
   }, []);
 
+  // Update document title dynamically
+  useEffect(() => {
+    const storeName = data.config.storeName || 'POS';
+    document.title = `${storeName} — Tervo`;
+  }, [data.config.storeName]);
+
   // Background data refresh (every 7 seconds)
   useEffect(() => {
     if (!currentUser) return;

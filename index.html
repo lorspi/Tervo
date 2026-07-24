@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-  <title>Tervo — Punto de Venta Offline</title>
+  <title>Tervo — Punto de Venta</title>
   <meta name="theme-color" content="#1a1d23" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <!-- Prevent FOUC: apply theme before first paint -->
   <script>
     (function() {
-      var theme = localStorage.getItem('kora-theme') || 'system';
+      var theme = localStorage.getItem('tervo-theme') || 'system';
       var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
       if (isDark) document.documentElement.classList.add('dark');
     })();
