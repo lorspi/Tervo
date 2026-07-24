@@ -1,0 +1,6 @@
+{
+  "name": "Sistema POS",
+  "description": "Sistema de Punto de Venta (POS) completo con gestión de inventario, caja, reportes, clientes, métodos de pago, usuarios y configuraciones.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
