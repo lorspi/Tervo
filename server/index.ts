@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import { initDatabase } from './database';
 
@@ -58,11 +59,12 @@ async function main() {
 
   // Start server
   app.listen(PORT, '0.0.0.0', () => {
+    const localIp = getLocalIp();
     console.log(`\n🚀 Servidor Tervo POS corriendo en:`);
     console.log(`   → Local:    http://localhost:${PORT}`);
-    console.log(`   → Red:      http://0.0.0.0:${PORT}`);
-    console.log(`\n   Las terminales de venta pueden conectarse usando la IP local de este computador.`);
-    console.log(`   Ejemplo: http://192.168.1.100:${PORT}\n`);
+    console.log(`   → Red:      http://${localIp}:${PORT}`);
+    console.log(`\n   Las terminales de venta pueden conectarse usando:`);
+    console.log(`   http://${localIp}:${PORT}\n`);
   });
 }
 
@@ -70,3 +72,46 @@ main().catch(err => {
   console.error('Error fatal al iniciar el servidor:', err);
   process.exit(1);
 });
+
+function getLocalIp(): string {
+  const interfaces = os.networkInterfaces();
+  const candidates: { address: string; name: string; priority: number }[] = [];
+
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (iface.family !== 'IPv4' || iface.internal) continue;
+
+      let priority = 0;
+      const addr = iface.address;
+
+      // Prioritize common LAN ranges
+      if (addr.startsWith('192.168.')) priority = 100;
+      else if (addr.startsWith('172.') && parseInt(addr.split('.')[1]) >= 16 && parseInt(addr.split('.')[1]) <= 31) priority = 80;
+      else if (addr.startsWith('10.')) priority = 50;
+      else priority = 10;
+
+      // Boost real adapter names (Wi-Fi, Ethernet, eth, wlan)
+      const lowerName = name.toLowerCase();
+      if (lowerName.includes('wi-fi') || lowerName.includes('wifi') || lowerName.includes('wlan')) priority += 20;
+      if (lowerName.includes('ethernet') || lowerName.includes('eth')) priority += 15;
+
+      // Penalize virtual/docker/vEthernet adapters
+      if (lowerName.includes('vethernet') || lowerName.includes('docker') || lowerName.includes('vbox') || lowerName.includes('vmware') || lowerName.includes('wsl') || lowerName.includes('hyper-v')) priority -= 60;
+
+      candidates.push({ address: addr, name, priority });
+    }
+  }
+
+  // Sort by priority descending
+  candidates.sort((a, b) => b.priority - a.priority);
+
+  // Print all found for visibility
+  if (candidates.length > 1) {
+    console.log(`   Interfaces de red detectadas:`);
+    candidates.forEach(c => {
+      console.log(`     • ${c.address} (${c.name})`);
+    });
+  }
+
+  return candidates.length > 0 ? candidates[0].address : '127.0.0.1';
+}

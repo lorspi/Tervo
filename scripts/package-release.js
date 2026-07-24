@@ -87,8 +87,6 @@ if not exist node_modules (
 )
 
 echo Iniciando servidor...
-echo Accede desde este PC: http://localhost:3001
-echo Accede desde la red:  http://TU-IP-LOCAL:3001
 echo.
 echo Presiona Ctrl+C para detener el servidor.
 echo.
