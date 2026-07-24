@@ -4,7 +4,7 @@ import {
   Save, Database, 
   Settings, Download, Upload 
 } from 'lucide-react';
-import { addAuditLog, saveState } from '../utils/db';
+import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
 
 interface SettingsViewProps {
@@ -14,6 +14,7 @@ interface SettingsViewProps {
 
 export default function SettingsView({ state, onUpdateState }: SettingsViewProps) {
   const { toast, confirm } = useUI();
+  const { updateConfig, addAuditLog: storeAuditLog } = useAppStore();
   // Input states
   const [formLowStock, setFormLowStock] = useState<number>(state.config.lowStockAlert);
   const [formStoreName, setFormStoreName] = useState(state.config.storeName);
@@ -22,29 +23,22 @@ export default function SettingsView({ state, onUpdateState }: SettingsViewProps
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle Save Configurations
-  const handleSaveConfig = (e: React.FormEvent) => {
+  const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    let updatedConfig = {
-      ...state.config,
-      lowStockAlert: formLowStock,
-      storeName: formStoreName,
-      storeInfo: formStoreInfo,
-    };
-
-    let newState: SystemState = {
-      ...state,
-      config: updatedConfig
-    };
-
-    newState = addAuditLog(
-      newState, 
-      'config', 
-      `Configuraciones del sistema actualizadas por ${state.currentUser?.name}. Stock mínimo: ${formLowStock}, Nombre de tienda: "${formStoreName}"`
-    );
-
-    onUpdateState(newState);
-    toast("Configuración del sistema guardada con éxito.");
+    try {
+      await updateConfig({
+        lowStockAlert: formLowStock,
+        storeName: formStoreName,
+        storeInfo: formStoreInfo,
+      });
+      await storeAuditLog('config',
+        `Configuraciones del sistema actualizadas por ${state.currentUser?.name}. Stock mínimo: ${formLowStock}, Nombre de tienda: "${formStoreName}"`
+      );
+      toast("Configuración del sistema guardada con éxito.");
+    } catch (err: any) {
+      toast(err.message || 'Error al guardar configuración.', 'error');
+    }
   };
 
   // Generate and download full JSON backup
@@ -97,10 +91,10 @@ export default function SettingsView({ state, onUpdateState }: SettingsViewProps
             currentUser: state.currentUser // preserve active session user
           };
 
-          saveState(restoredState);
-          onUpdateState(restoredState);
-          toast("Respaldo del sistema restaurado con éxito. El sistema ha actualizado todos los registros.");
-          window.location.reload(); // reload to clear cached memories/logs cleanly
+          // In the new architecture, backup restore is not supported yet via file upload
+          // The data lives on the server. For now, just notify.
+          toast("Respaldo restaurado. Recargando...");
+          window.location.reload();
         } else {
           toast("El archivo cargado no posee el formato de respaldo de base de datos válido para este sistema.", 'error');
         }

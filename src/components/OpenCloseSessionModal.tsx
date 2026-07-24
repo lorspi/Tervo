@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { SystemState, CashSession } from '../types';
 import { Check, AlertCircle } from 'lucide-react';
-import { addAuditLog } from '../utils/db';
+import { useAppStore } from '../store';
 
 interface OpenCloseSessionModalProps {
   state: SystemState;
@@ -19,48 +19,32 @@ export default function OpenCloseSessionModal({
   onClose
 }: OpenCloseSessionModalProps) {
 
+  const { openCashSession, closeCashSession, addAuditLog } = useAppStore();
   const [initialCash, setInitialCash] = useState<number>(10000);
   const [realAmounts, setRealAmounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(false);
 
   const activeSession = useMemo(() => {
     if (!state.currentSessionId) return null;
     return state.cashSessions.find(s => s.id === state.currentSessionId) || null;
   }, [state.cashSessions, state.currentSessionId]);
 
-  const handleOpenCashBox = (e: React.FormEvent) => {
+  const handleOpenCashBox = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (initialCash < 0) return;
+    if (initialCash < 0 || loading) return;
+    setLoading(true);
 
-    const sessionId = 'caja_' + Date.now();
-    const now = new Date();
-
-    const expectedAmounts: Record<string, number> = {};
-    state.paymentMethods.forEach(pm => {
-      expectedAmounts[pm.id] = pm.name.toLowerCase().includes('efectivo') ? initialCash : 0;
-    });
-
-    const newSession: CashSession = {
-      id: sessionId,
-      openDate: now.toISOString(),
-      openedBy: state.currentUser?.id || 'unknown',
-      openedByName: state.currentUser?.name || 'Sistema',
-      initialCash,
-      expectedAmounts,
-      status: 'open'
-    };
-
-    let newState: SystemState = {
-      ...state,
-      cashSessions: [newSession, ...state.cashSessions],
-      currentSessionId: sessionId
-    };
-
-    newState = addAuditLog(newState, 'system_status',
-      `Apertura de caja por ${state.currentUser?.name}. Efectivo inicial: $${initialCash}`
-    );
-
-    onUpdateState(newState);
-    onClose();
+    try {
+      await openCashSession(initialCash);
+      await addAuditLog('system_status',
+        `Apertura de caja por ${state.currentUser?.name}. Efectivo inicial: $${initialCash}`
+      );
+      onClose();
+    } catch (err: any) {
+      alert(err.message || 'Error al abrir caja.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   React.useEffect(() => {
@@ -73,47 +57,31 @@ export default function OpenCloseSessionModal({
     }
   }, [isCloseModal, activeSession, state.paymentMethods]);
 
-  const handleCloseCashBox = (e: React.FormEvent) => {
+  const handleCloseCashBox = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeSession) return;
+    if (!activeSession || loading) return;
+    setLoading(true);
 
-    const now = new Date();
-    const discrepancies: Record<string, number> = {};
+    try {
+      await closeCashSession(activeSession.id, realAmounts);
 
-    state.paymentMethods.forEach(pm => {
-      const expected = activeSession.expectedAmounts[pm.id] || 0;
-      const real = realAmounts[pm.id] || 0;
-      discrepancies[pm.id] = real - expected;
-    });
+      const discrepancies: Record<string, number> = {};
+      state.paymentMethods.forEach(pm => {
+        const expected = activeSession.expectedAmounts[pm.id] || 0;
+        const real = realAmounts[pm.id] || 0;
+        discrepancies[pm.id] = real - expected;
+      });
+      const totalDiscrepancy = Object.values(discrepancies).reduce((acc, v) => acc + v, 0);
 
-    const updatedSessions = state.cashSessions.map(sess => {
-      if (sess.id === activeSession.id) {
-        return {
-          ...sess,
-          closeDate: now.toISOString(),
-          closedBy: state.currentUser?.id,
-          closedByName: state.currentUser?.name,
-          realAmounts,
-          discrepancies,
-          status: 'closed' as const
-        };
-      }
-      return sess;
-    });
-
-    let newState: SystemState = {
-      ...state,
-      cashSessions: updatedSessions,
-      currentSessionId: null
-    };
-
-    const totalDiscrepancy = Object.values(discrepancies).reduce((acc, v) => acc + v, 0);
-    newState = addAuditLog(newState, 'system_status',
-      `Cierre de caja por ${state.currentUser?.name}. Desajuste: ${totalDiscrepancy === 0 ? 'Sin diferencias' : `$${totalDiscrepancy}`}`
-    );
-
-    onUpdateState(newState);
-    onClose();
+      await addAuditLog('system_status',
+        `Cierre de caja por ${state.currentUser?.name}. Desajuste: ${totalDiscrepancy === 0 ? 'Sin diferencias' : `$${totalDiscrepancy}`}`
+      );
+      onClose();
+    } catch (err: any) {
+      alert(err.message || 'Error al cerrar caja.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatMoney = (amount: number) => {
@@ -162,10 +130,10 @@ export default function OpenCloseSessionModal({
               className="px-4 py-2 text-xs font-semibold rounded-xl bg-secondary hover:bg-accent border border-border text-foreground transition-colors cursor-pointer">
               Cancelar
             </button>
-            <button type="submit"
-              className="px-4 py-2 text-xs font-bold rounded-xl bg-primary hover:opacity-90 text-primary-foreground transition-colors flex items-center gap-1.5 cursor-pointer">
+            <button type="submit" disabled={loading}
+              className="px-4 py-2 text-xs font-bold rounded-xl bg-primary hover:opacity-90 text-primary-foreground transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50">
               <Check className="h-3.5 w-3.5" />
-              Abrir Caja
+              {loading ? 'Abriendo...' : 'Abrir Caja'}
             </button>
           </div>
         </form>
@@ -238,10 +206,10 @@ export default function OpenCloseSessionModal({
               className="px-4 py-2 text-xs font-semibold rounded-xl bg-secondary hover:bg-accent border border-border text-foreground transition-colors cursor-pointer">
               Cancelar
             </button>
-            <button type="submit"
-              className="px-4 py-2 text-xs font-bold rounded-xl bg-primary hover:opacity-90 text-primary-foreground transition-colors flex items-center gap-1.5 cursor-pointer">
+            <button type="submit" disabled={loading}
+              className="px-4 py-2 text-xs font-bold rounded-xl bg-primary hover:opacity-90 text-primary-foreground transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50">
               <Check className="h-3.5 w-3.5" />
-              Efectuar Cierre
+              {loading ? 'Cerrando...' : 'Efectuar Cierre'}
             </button>
           </div>
         </form>

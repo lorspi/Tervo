@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SystemState, User, UserRole } from '../types';
 import { Plus, Edit2, Check, UserPlus, Shield, UserX, ShieldCheck } from 'lucide-react';
-import { addAuditLog } from '../utils/db';
+import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
 
 interface UsersViewProps {
@@ -11,6 +11,7 @@ interface UsersViewProps {
 
 export default function UsersView({ state, onUpdateState }: UsersViewProps) {
   const { toast, confirm } = useUI();
+  const { createUser, updateUser, deleteUser, addAuditLog: storeAuditLog } = useAppStore();
   // Create / Edit states
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -41,63 +42,39 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
     setIsCreateOpen(true);
   };
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName || !formUsername || !formPassword) {
       toast("Por favor completa todos los campos obligatorios.", 'warning');
       return;
     }
 
-    let updatedUsers = [...state.users];
-    let logDetail = '';
+    try {
+      if (editingUser) {
+        await updateUser(editingUser.id, {
+          name: formName,
+          username: formUsername,
+          password: formPassword,
+          role: formRole,
+          active: formActive,
+        });
+        await storeAuditLog('user', `Usuario "${formName}" (ID: ${editingUser.id}) editado por ${state.currentUser?.name}. Rol: ${formRole}, Activo: ${formActive ? 'Sí' : 'No'}`);
+      } else {
+        await createUser({
+          name: formName,
+          username: formUsername,
+          password: formPassword,
+          role: formRole,
+          active: formActive,
+        });
+        await storeAuditLog('user', `Nuevo usuario "${formName}" (Rol: ${formRole}) registrado por ${state.currentUser?.name}.`);
+      }
 
-    // Check duplicate username
-    const duplicate = state.users.find(u => u.username.toLowerCase() === formUsername.toLowerCase() && (!editingUser || u.id !== editingUser.id));
-    if (duplicate) {
-      toast(`El nombre de usuario "${formUsername}" ya está en uso.`, 'error');
-      return;
+      setEditingUser(null);
+      setIsCreateOpen(false);
+    } catch (err: any) {
+      toast(err.message || 'Error al guardar usuario.', 'error');
     }
-
-    if (editingUser) {
-      // Edit mode
-      updatedUsers = state.users.map(u => {
-        if (u.id === editingUser.id) {
-          return {
-            ...u,
-            name: formName,
-            username: formUsername,
-            password: formPassword,
-            role: formRole,
-            active: formActive
-          };
-        }
-        return u;
-      });
-      logDetail = `Usuario "${formName}" (ID: ${editingUser.id}) editado por ${state.currentUser?.name}. Rol: ${formRole}, Activo: ${formActive ? 'Sí' : 'No'}`;
-    } else {
-      // Create mode
-      const newUser: User = {
-        id: 'u_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-        name: formName,
-        username: formUsername,
-        password: formPassword,
-        role: formRole,
-        active: formActive
-      };
-      updatedUsers.push(newUser);
-      logDetail = `Nuevo usuario "${formName}" (Rol: ${formRole}) registrado por ${state.currentUser?.name}.`;
-    }
-
-    let newState: SystemState = {
-      ...state,
-      users: updatedUsers
-    };
-
-    newState = addAuditLog(newState, 'user', logDetail);
-    onUpdateState(newState);
-
-    setEditingUser(null);
-    setIsCreateOpen(false);
   };
 
   const handleDeleteUser = async (userId: string, userName: string) => {
@@ -107,18 +84,14 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
     }
 
     const confirmed = await confirm({ title: 'Eliminar Usuario', message: `¿Estás seguro de que deseas eliminar al usuario "${userName}" del sistema?`, variant: 'danger' });
-    if (!confirmed) {
-      return;
+    if (!confirmed) return;
+
+    try {
+      await deleteUser(userId);
+      await storeAuditLog('user', `Usuario "${userName}" (ID: ${userId}) eliminado del sistema por ${state.currentUser?.name}.`);
+    } catch (err: any) {
+      toast(err.message || 'Error al eliminar usuario.', 'error');
     }
-
-    const updatedUsers = state.users.filter(u => u.id !== userId);
-    let newState: SystemState = {
-      ...state,
-      users: updatedUsers
-    };
-
-    newState = addAuditLog(newState, 'user', `Usuario "${userName}" (ID: ${userId}) eliminado del sistema por ${state.currentUser?.name}.`);
-    onUpdateState(newState);
   };
 
   const getRoleBadge = (role: UserRole) => {

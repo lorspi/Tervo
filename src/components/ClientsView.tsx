@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { SystemState, Client } from '../types';
 import { Plus, Edit2, Search, Trash2, Check, UserPlus, Phone, Mail, MapPin, CreditCard } from 'lucide-react';
-import { addAuditLog } from '../utils/db';
+import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
 
 interface ClientsViewProps {
@@ -11,6 +11,7 @@ interface ClientsViewProps {
 
 export default function ClientsView({ state, onUpdateState }: ClientsViewProps) {
   const { toast, confirm } = useUI();
+  const { createClient, updateClient, deleteClient, addAuditLog: storeAuditLog } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   
   // Create / Edit states
@@ -63,54 +64,39 @@ export default function ClientsView({ state, onUpdateState }: ClientsViewProps) 
   };
 
   // Save / Update client
-  const handleSaveClient = (e: React.FormEvent) => {
+  const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName) {
       toast("Por favor ingresa al menos el Nombre del Cliente.", 'warning');
       return;
     }
 
-    let updatedClients = [...state.clients];
-    let logDetail = '';
+    try {
+      if (editingClient) {
+        await updateClient(editingClient.id, {
+          name: formName,
+          document: formDocument || undefined,
+          phone: formPhone || undefined,
+          email: formEmail || undefined,
+          address: formAddress || undefined,
+        });
+        await storeAuditLog('client', `Cliente "${formName}" (ID: ${editingClient.id}) editado por ${state.currentUser?.name}.`);
+      } else {
+        await createClient({
+          name: formName,
+          document: formDocument || undefined,
+          phone: formPhone || undefined,
+          email: formEmail || undefined,
+          address: formAddress || undefined,
+        });
+        await storeAuditLog('client', `Nuevo cliente "${formName}" registrado por ${state.currentUser?.name}.`);
+      }
 
-    if (editingClient) {
-      updatedClients = state.clients.map(c => {
-        if (c.id === editingClient.id) {
-          return {
-            ...c,
-            name: formName,
-            document: formDocument || undefined,
-            phone: formPhone || undefined,
-            email: formEmail || undefined,
-            address: formAddress || undefined
-          };
-        }
-        return c;
-      });
-      logDetail = `Cliente "${formName}" (ID: ${editingClient.id}) editado por ${state.currentUser?.name}.`;
-    } else {
-      const newClient: Client = {
-        id: 'c_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-        name: formName,
-        document: formDocument || undefined,
-        phone: formPhone || undefined,
-        email: formEmail || undefined,
-        address: formAddress || undefined
-      };
-      updatedClients.push(newClient);
-      logDetail = `Nuevo cliente "${formName}" registrado por ${state.currentUser?.name}.`;
+      setEditingClient(null);
+      setIsCreateOpen(false);
+    } catch (err: any) {
+      toast(err.message || 'Error al guardar cliente.', 'error');
     }
-
-    let newState: SystemState = {
-      ...state,
-      clients: updatedClients
-    };
-
-    newState = addAuditLog(newState, 'client', logDetail);
-    onUpdateState(newState);
-
-    setEditingClient(null);
-    setIsCreateOpen(false);
   };
 
   const handleDeleteClient = async (clientId: string, clientName: string) => {
@@ -120,18 +106,14 @@ export default function ClientsView({ state, onUpdateState }: ClientsViewProps) 
     }
 
     const confirmed = await confirm({ title: 'Eliminar Cliente', message: `¿Estás seguro de que deseas eliminar al cliente "${clientName}" del sistema?`, variant: 'danger' });
-    if (!confirmed) {
-      return;
+    if (!confirmed) return;
+
+    try {
+      await deleteClient(clientId);
+      await storeAuditLog('client', `Cliente "${clientName}" (ID: ${clientId}) eliminado del sistema por ${state.currentUser?.name}.`);
+    } catch (err: any) {
+      toast(err.message || 'Error al eliminar cliente.', 'error');
     }
-
-    const updatedClients = state.clients.filter(c => c.id !== clientId);
-    let newState: SystemState = {
-      ...state,
-      clients: updatedClients
-    };
-
-    newState = addAuditLog(newState, 'client', `Cliente "${clientName}" (ID: ${clientId}) eliminado del sistema por ${state.currentUser?.name}.`);
-    onUpdateState(newState);
   };
 
   return (

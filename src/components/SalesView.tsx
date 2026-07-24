@@ -4,7 +4,7 @@ import {
   Search, Eye, Edit2, FileText, Printer, ArrowLeft, Trash2, Plus, Minus,
   AlertTriangle, Check, User, Calendar, CreditCard, ShoppingBag
 } from 'lucide-react';
-import { addAuditLog } from '../utils/db';
+import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
 
 interface SalesViewProps {
@@ -14,6 +14,7 @@ interface SalesViewProps {
 
 export default function SalesView({ state, onUpdateState }: SalesViewProps) {
   const { toast } = useUI();
+  const { updateSale, addAuditLog: storeAuditLog } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [sessionFilter, setSessionFilter] = useState<string>('current_or_last'); // 'all' | 'current_or_last' | specificId
   const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<Sale | null>(null);
@@ -104,89 +105,20 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
   };
 
   // Save the Edited Sale
-  const handleSaveSaleEdits = () => {
+  const handleSaveSaleEdits = async () => {
     if (!editingSale) return;
 
-    // We must update the inventory stocks by comparing old item quantities and new item quantities!
-    const updatedProducts = [...state.products];
-    const auditLogs: string[] = [];
-
-    // Map of old items quantities
-    const oldQtyMap: Record<string, number> = {};
-    editingSale.items.forEach(item => {
-      oldQtyMap[item.productId] = item.quantity;
-    });
-
-    // Map of new items quantities
-    const newQtyMap: Record<string, number> = {};
-    editItems.forEach(item => {
-      newQtyMap[item.productId] = item.quantity;
-    });
-
-    // Check inventory differences and adjust stocks
-    // 1. Process items in both or items with changed quantities
-    let inventoryPossible = true;
-    
-    // For products in old but not in new: stock goes back up!
-    editingSale.items.forEach(oldItem => {
-      if (!newQtyMap[oldItem.productId]) {
-        // Returned completely
-        const prod = updatedProducts.find(p => p.id === oldItem.productId);
-        if (prod) {
-          prod.stock += oldItem.quantity;
-          auditLogs.push(`Devolución de ${oldItem.quantity}x ${oldItem.name} al inventario.`);
-        }
-      }
-    });
-
-    // For products in new:
-    editItems.forEach(newItem => {
-      const oldQty = oldQtyMap[newItem.productId] || 0;
-      const diff = newItem.quantity - oldQty; // e.g. 2 - 1 = +1 sold, stock decreases by 1
-      
-      const prod = updatedProducts.find(p => p.id === newItem.productId);
-      if (prod) {
-        if (diff > 0) {
-          // Selling more, check stock
-          if (prod.stock < diff) {
-            inventoryPossible = false;
-            toast(`No hay suficiente stock para añadir ${diff} unidades adicionales de "${prod.name}". Stock actual: ${prod.stock}`, 'error');
-            return;
-          }
-          prod.stock -= diff;
-          auditLogs.push(`Salida de ${diff}x ${newItem.name} del inventario por ajuste.`);
-        } else if (diff < 0) {
-          // Returning some units
-          prod.stock += Math.abs(diff);
-          auditLogs.push(`Devolución de ${Math.abs(diff)}x ${newItem.name} al inventario por ajuste.`);
-        }
-      }
-    });
-
-    if (!inventoryPossible) return;
-
-    // Recalculate financial totals
     const client = state.clients.find(c => c.id === editClient);
     const clientName = client ? client.name : 'Cliente General';
-
     const itemsSubtotal = editItems.reduce((acc, item) => acc + item.subtotal, 0);
 
-    // Keep payment distribution proportional or keep the old payments adjusted?
-    // Let's adjust payments. Normally, the POS edit should update the payments total.
-    // Let's assume commissions are updated accordingly. Since we are editing a sale, we can calculate commissions based on the payment methods used.
-    // If the sale had split payments, we scale them proportionally or assign the difference to the first payment method.
-    // For simplicity, let's keep the payment amounts proportional to the new total.
-    let oldTotalCommissions = editingSale.totalCommissions;
-    let oldTotalFees = editingSale.totalFees;
-    
-    // Recalculate commissions/fees proportionally or use the active payment method settings
-    // To keep it clean, let's recalculate based on original distribution proportion
+    // Recalculate proportionally
     const originalPayable = editingSale.totalPayable;
-    const ratio = originalPayable > 0 ? (itemsSubtotal / editingSale.subtotal) : 1;
+    const ratio = editingSale.subtotal > 0 ? (itemsSubtotal / editingSale.subtotal) : 1;
     
     const newSubtotal = itemsSubtotal;
     const newCommissions = Math.round(editingSale.totalCommissions * ratio);
-    const newFees = editingSale.totalFees; // keep flat fees same if payment method count doesn't change
+    const newFees = editingSale.totalFees;
     const newPayable = newSubtotal + newCommissions + newFees;
 
     const newPayments = editingSale.payments.map(pay => {
@@ -197,78 +129,34 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
       };
     });
 
-    // Make sure payments sum matches newPayable exactly (adjust rounding issues in first payment)
+    // Fix rounding
     const totalPaymentsSum = newPayments.reduce((acc, p) => acc + p.amount, 0);
     const roundingDiff = newPayable - totalPaymentsSum;
     if (roundingDiff !== 0 && newPayments.length > 0) {
       newPayments[0].amount += roundingDiff;
     }
 
-    // Now update sale cashSession expectedAmounts!
-    // Since we adjusted the sale total, we must update the cashSession expected amounts for that period!
-    const updatedSessions = state.cashSessions.map(session => {
-      if (session.id === editingSale.cashSessionId) {
-        const expectedAmounts = { ...session.expectedAmounts };
-        
-        // Remove old payment values
-        editingSale.payments.forEach(pay => {
-          if (expectedAmounts[pay.methodId] !== undefined) {
-            expectedAmounts[pay.methodId] -= pay.amount;
-          }
-        });
+    try {
+      await updateSale(editingSale.id, {
+        clientId: editClient || undefined,
+        clientName,
+        items: editItems,
+        subtotal: newSubtotal,
+        totalCommissions: newCommissions,
+        totalFees: newFees,
+        totalPayable: newPayable,
+        payments: newPayments,
+      });
 
-        // Add new payment values
-        newPayments.forEach(pay => {
-          if (expectedAmounts[pay.methodId] !== undefined) {
-            expectedAmounts[pay.methodId] += pay.amount;
-          } else {
-            expectedAmounts[pay.methodId] = pay.amount;
-          }
-        });
+      await storeAuditLog('inventory',
+        `Venta ${editingSale.code} editada por ${state.currentUser?.name}. Cliente actualizado a "${clientName}".`
+      );
 
-        return {
-          ...session,
-          expectedAmounts
-        };
-      }
-      return session;
-    });
-
-    // Update sales list
-    const updatedSales = state.sales.map(sale => {
-      if (sale.id === editingSale.id) {
-        return {
-          ...sale,
-          clientId: editClient || undefined,
-          clientName: clientName,
-          items: editItems,
-          subtotal: newSubtotal,
-          totalCommissions: newCommissions,
-          totalFees: newFees,
-          totalPayable: newPayable,
-          payments: newPayments
-        };
-      }
-      return sale;
-    });
-
-    let newState: SystemState = {
-      ...state,
-      products: updatedProducts,
-      sales: updatedSales,
-      cashSessions: updatedSessions
-    };
-
-    // Log the event
-    newState = addAuditLog(
-      newState, 
-      'inventory', 
-      `Venta ${editingSale.code} editada por ${state.currentUser?.name}. Cliente actualizado a "${clientName}". ${auditLogs.join(' ')}`
-    );
-
-    onUpdateState(newState);
-    setEditingSale(null);
-    toast("Venta editada y existencias actualizadas con éxito.");
+      setEditingSale(null);
+      toast("Venta editada y existencias actualizadas con éxito.");
+    } catch (err: any) {
+      toast(err.message || 'Error al editar la venta.', 'error');
+    }
   };
 
   return (

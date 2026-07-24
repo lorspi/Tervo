@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SystemState, PaymentMethod } from '../types';
 import { Plus, Edit2, Check, CreditCard, DollarSign, Percent, AlertCircle } from 'lucide-react';
-import { addAuditLog } from '../utils/db';
+import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
 
 interface PaymentMethodsViewProps {
@@ -11,6 +11,7 @@ interface PaymentMethodsViewProps {
 
 export default function PaymentMethodsView({ state, onUpdateState }: PaymentMethodsViewProps) {
   const { toast } = useUI();
+  const { createPaymentMethod, updatePaymentMethod, addAuditLog: storeAuditLog } = useAppStore();
   // Create / Edit states
   const [editingMethod, setEditingMethod] = useState<PaymentMethod | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -38,52 +39,37 @@ export default function PaymentMethodsView({ state, onUpdateState }: PaymentMeth
     setIsCreateOpen(true);
   };
 
-  const handleSavePaymentMethod = (e: React.FormEvent) => {
+  const handleSavePaymentMethod = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName) {
       toast("Por favor ingresa un nombre para el método de pago.", 'warning');
       return;
     }
 
-    let updatedMethods = [...state.paymentMethods];
-    let logDetail = '';
+    try {
+      if (editingMethod) {
+        await updatePaymentMethod(editingMethod.id, {
+          name: formName,
+          commissionPercent: formCommission,
+          flatFee: formFlatFee,
+          active: formActive,
+        });
+        await storeAuditLog('payment_method', `Método de pago "${formName}" (ID: ${editingMethod.id}) editado por ${state.currentUser?.name}. Comisión: ${formCommission}%, Cargo Fijo: $${formFlatFee}, Activo: ${formActive ? 'Sí' : 'No'}`);
+      } else {
+        await createPaymentMethod({
+          name: formName,
+          commissionPercent: formCommission,
+          flatFee: formFlatFee,
+          active: formActive,
+        });
+        await storeAuditLog('payment_method', `Nuevo método de pago "${formName}" creado por ${state.currentUser?.name}. Comisión: ${formCommission}%, Cargo Fijo: $${formFlatFee}`);
+      }
 
-    if (editingMethod) {
-      updatedMethods = state.paymentMethods.map(pm => {
-        if (pm.id === editingMethod.id) {
-          return {
-            ...pm,
-            name: formName,
-            commissionPercent: formCommission,
-            flatFee: formFlatFee,
-            active: formActive
-          };
-        }
-        return pm;
-      });
-      logDetail = `Método de pago "${formName}" (ID: ${editingMethod.id}) editado por ${state.currentUser?.name}. Comisión: ${formCommission}%, Cargo Fijo: $${formFlatFee}, Activo: ${formActive ? 'Sí' : 'No'}`;
-    } else {
-      const newMethod: PaymentMethod = {
-        id: 'pm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-        name: formName,
-        commissionPercent: formCommission,
-        flatFee: formFlatFee,
-        active: formActive
-      };
-      updatedMethods.push(newMethod);
-      logDetail = `Nuevo método de pago "${formName}" creado por ${state.currentUser?.name}. Comisión: ${formCommission}%, Cargo Fijo: $${formFlatFee}`;
+      setEditingMethod(null);
+      setIsCreateOpen(false);
+    } catch (err: any) {
+      toast(err.message || 'Error al guardar método de pago.', 'error');
     }
-
-    let newState: SystemState = {
-      ...state,
-      paymentMethods: updatedMethods
-    };
-
-    newState = addAuditLog(newState, 'payment_method', logDetail);
-    onUpdateState(newState);
-
-    setEditingMethod(null);
-    setIsCreateOpen(false);
   };
 
   const formatMoney = (amount: number) => {

@@ -4,7 +4,7 @@ import {
   X, Search, Plus, Minus, Trash2, Check, User, ShoppingCart, 
   CreditCard, DollarSign, Percent, AlertCircle 
 } from 'lucide-react';
-import { addAuditLog } from '../utils/db';
+import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
 
 interface NewSaleModalProps {
@@ -210,8 +210,11 @@ export default function NewSaleModal({
     return cartTotals.totalPayable - paymentSum;
   }, [cartTotals.totalPayable, paymentSum]);
 
+  const { createSale, addAuditLog: storeAddAuditLog } = useAppStore();
+  const [submitting, setSubmitting] = useState(false);
+
   // Submit Sale Handler
-  const handleSubmitSale = (e: React.FormEvent) => {
+  const handleSubmitSale = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (cart.length === 0) {
@@ -229,101 +232,61 @@ export default function NewSaleModal({
       return;
     }
 
-    // 1. Deduct Product Stocks in inventory
-    const updatedProducts = state.products.map(p => {
-      const cartItem = cart.find(item => item.product.id === p.id);
-      if (cartItem) {
-        return {
-          ...p,
-          stock: Math.max(0, p.stock - cartItem.quantity)
-        };
-      }
-      return p;
-    });
+    if (submitting) return;
+    setSubmitting(true);
 
-    // 2. Build Sale Object
-    const client = state.clients.find(c => c.id === selectedClientId);
-    const clientName = client ? client.name : 'Cliente General';
-    
-    const saleCode = 'V-' + String(state.sales.length + 1).padStart(4, '0');
-    
-    const saleItems: SaleItem[] = cart.map(item => ({
-      productId: item.product.id,
-      name: item.product.name,
-      price: item.product.price,
-      cost: item.product.cost,
-      quantity: item.quantity,
-      subtotal: item.product.price * item.quantity
-    }));
+    try {
+      // Build Sale Object for API
+      const client = state.clients.find(c => c.id === selectedClientId);
+      const clientName = client ? client.name : 'Cliente General';
+      
+      const saleItems: SaleItem[] = cart.map(item => ({
+        productId: item.product.id,
+        name: item.product.name,
+        price: item.product.price,
+        cost: item.product.cost,
+        quantity: item.quantity,
+        subtotal: item.product.price * item.quantity
+      }));
 
-    const paymentsList = (Object.entries(payments) as [string, number][])
-      .filter(([_, amount]) => amount > 0)
-      .map(([methodId, amount]) => {
-        const pm = state.paymentMethods.find(p => p.id === methodId);
-        return {
-          methodId,
-          methodName: pm ? pm.name : 'Otro',
-          amount
-        };
-      });
-
-    const newSale: Sale = {
-      id: 'sale_' + Date.now(),
-      code: saleCode,
-      date: new Date().toISOString(),
-      clientId: selectedClientId || undefined,
-      clientName,
-      items: saleItems,
-      subtotal: cartTotals.subtotal,
-      totalCommissions: cartTotals.totalCommissions,
-      totalFees: cartTotals.totalFees,
-      totalPayable: cartTotals.totalPayable,
-      payments: paymentsList,
-      cashierId: state.currentUser?.id || 'unknown',
-      cashierName: state.currentUser?.name || 'Vendedor',
-      cashSessionId: state.currentSessionId
-    };
-
-    // 3. Update active Cash Session's expected amounts by summing this sale's payments
-    const updatedSessions = state.cashSessions.map(session => {
-      if (session.id === state.currentSessionId) {
-        const expectedAmounts = { ...session.expectedAmounts };
-        
-        paymentsList.forEach(p => {
-          if (expectedAmounts[p.methodId] !== undefined) {
-            expectedAmounts[p.methodId] += p.amount;
-          } else {
-            expectedAmounts[p.methodId] = p.amount;
-          }
+      const paymentsList = (Object.entries(payments) as [string, number][])
+        .filter(([_, amount]) => amount > 0)
+        .map(([methodId, amount]) => {
+          const pm = state.paymentMethods.find(p => p.id === methodId);
+          return {
+            methodId,
+            methodName: pm ? pm.name : 'Otro',
+            amount
+          };
         });
 
-        return {
-          ...session,
-          expectedAmounts
-        };
-      }
-      return session;
-    });
+      const newSale = await createSale({
+        clientId: selectedClientId || undefined,
+        clientName,
+        items: saleItems,
+        subtotal: cartTotals.subtotal,
+        totalCommissions: cartTotals.totalCommissions,
+        totalFees: cartTotals.totalFees,
+        totalPayable: cartTotals.totalPayable,
+        payments: paymentsList,
+        cashSessionId: state.currentSessionId,
+      });
 
-    // Update global state
-    let newState: SystemState = {
-      ...state,
-      products: updatedProducts,
-      sales: [newSale, ...state.sales],
-      cashSessions: updatedSessions
-    };
+      // Log the transaction
+      const logSummary = `Nueva Venta ${newSale.code} completada por ${state.currentUser?.name} para el cliente "${clientName}". Total: $${cartTotals.totalPayable}. Productos vendidos: ${cart.map(i => `${i.quantity}x ${i.product.name}`).join(', ')}`;
+      await storeAddAuditLog('inventory', logSummary);
 
-    // Log the transaction
-    const logSummary = `Nueva Venta ${saleCode} completada por ${state.currentUser?.name} para el cliente "${clientName}". Total: $${cartTotals.totalPayable}. Productos vendidos: ${cart.map(i => `${i.quantity}x ${i.product.name}`).join(', ')}`;
-    newState = addAuditLog(newState, 'inventory', logSummary);
+      onClose();
 
-    onUpdateState(newState);
-    onClose();
-
-    // Trigger instant print boleta feedback!
-    setTimeout(() => {
-      onTriggerPrint(newSale);
-    }, 300);
+      // Trigger instant print boleta feedback!
+      setTimeout(() => {
+        onTriggerPrint(newSale);
+      }, 300);
+    } catch (err: any) {
+      toast(err.message || 'Error al registrar la venta.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const formatMoney = (amount: number) => {

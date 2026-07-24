@@ -3,7 +3,7 @@ import { SystemState, Product } from '../types';
 import { 
   Plus, Edit2, Download, Upload, Search, Package, Trash2, Check, AlertCircle, HelpCircle
 } from 'lucide-react';
-import { addAuditLog } from '../utils/db';
+import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
 
 interface InventoryViewProps {
@@ -13,6 +13,7 @@ interface InventoryViewProps {
 
 export default function InventoryView({ state, onUpdateState }: InventoryViewProps) {
   const { toast, confirm } = useUI();
+  const { createProduct, updateProduct, deleteProduct, bulkImportProducts, addAuditLog: storeAuditLog } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   
@@ -79,84 +80,56 @@ export default function InventoryView({ state, onUpdateState }: InventoryViewPro
   };
 
   // Save / Update Product
-  const handleSaveProduct = (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName || !formBarcode || formPrice <= 0) {
       toast("Por favor completa los campos obligatorios: Nombre, Código de Barras y un Precio mayor a 0.", 'warning');
       return;
     }
 
-    let updatedProducts: Product[] = [];
-    let logDetail = '';
-
-    if (editingProduct) {
-      // Edit mode
-      updatedProducts = state.products.map(p => {
-        if (p.id === editingProduct.id) {
-          return {
-            ...p,
-            name: formName,
-            sku: formSku || undefined,
-            barcode: formBarcode,
-            category: formCategory || 'General',
-            stock: formStock,
-            cost: formCost,
-            price: formPrice
-          };
-        }
-        return p;
-      });
-      logDetail = `Producto "${formName}" (ID: ${editingProduct.id}) actualizado por ${state.currentUser?.name}. Stock: ${formStock}, Costo: ${formCost}, Precio: ${formPrice}`;
-    } else {
-      // Check duplicate barcode
-      const duplicate = state.products.find(p => p.barcode === formBarcode);
-      if (duplicate) {
-        toast(`Ya existe un producto registrado con el código de barras "${formBarcode}" (${duplicate.name}).`, 'error');
-        return;
+    try {
+      if (editingProduct) {
+        await updateProduct(editingProduct.id, {
+          name: formName,
+          sku: formSku || undefined,
+          barcode: formBarcode,
+          category: formCategory || 'General',
+          stock: formStock,
+          cost: formCost,
+          price: formPrice,
+        });
+        await storeAuditLog('inventory', `Producto "${formName}" (ID: ${editingProduct.id}) actualizado por ${state.currentUser?.name}. Stock: ${formStock}, Costo: ${formCost}, Precio: ${formPrice}`);
+      } else {
+        await createProduct({
+          name: formName,
+          sku: formSku || undefined,
+          barcode: formBarcode,
+          category: formCategory || 'General',
+          stock: formStock,
+          cost: formCost,
+          price: formPrice,
+        });
+        await storeAuditLog('inventory', `Nuevo producto "${formName}" agregado por ${state.currentUser?.name}. Código barras: ${formBarcode}, Stock inicial: ${formStock}`);
       }
 
-      // Create Mode
-      const newProduct: Product = {
-        id: 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-        name: formName,
-        sku: formSku || undefined,
-        barcode: formBarcode,
-        category: formCategory || 'General',
-        stock: formStock,
-        cost: formCost,
-        price: formPrice
-      };
-      updatedProducts = [...state.products, newProduct];
-      logDetail = `Nuevo producto "${formName}" agregado por ${state.currentUser?.name}. Código barras: ${formBarcode}, Stock inicial: ${formStock}`;
+      setEditingProduct(null);
+      setIsCreateOpen(false);
+    } catch (err: any) {
+      toast(err.message || 'Error al guardar producto.', 'error');
     }
-
-    let newState: SystemState = {
-      ...state,
-      products: updatedProducts
-    };
-
-    newState = addAuditLog(newState, 'inventory', logDetail);
-    onUpdateState(newState);
-
-    setEditingProduct(null);
-    setIsCreateOpen(false);
   };
 
-  // Delete product (Optional but handy for layout completeness)
+  // Delete product
   const handleDeleteProduct = async (productId: string, productName: string) => {
     const confirmed = await confirm({ title: 'Eliminar Producto', message: `¿Estás seguro de que deseas eliminar el producto "${productName}" del inventario?`, variant: 'danger' });
-    if (!confirmed) {
-      return;
+    if (!confirmed) return;
+
+    try {
+      await deleteProduct(productId);
+      await storeAuditLog('inventory', `Producto "${productName}" (ID: ${productId}) eliminado del inventario por ${state.currentUser?.name}.`);
+    } catch (err: any) {
+      toast(err.message || 'Error al eliminar producto.', 'error');
     }
-
-    const updatedProducts = state.products.filter(p => p.id !== productId);
-    let newState: SystemState = {
-      ...state,
-      products: updatedProducts
-    };
-
-    newState = addAuditLog(newState, 'inventory', `Producto "${productName}" (ID: ${productId}) eliminado del inventario por ${state.currentUser?.name}.`);
-    onUpdateState(newState);
   };
 
   // Export inventory to CSV
@@ -203,7 +176,7 @@ export default function InventoryView({ state, onUpdateState }: InventoryViewPro
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const text = event.target?.result as string;
       if (!text) return;
 
@@ -213,21 +186,14 @@ export default function InventoryView({ state, onUpdateState }: InventoryViewPro
         return;
       }
 
-      const updatedProducts = [...state.products];
-      let importedCount = 0;
-      let updatedCount = 0;
+      const productsToImport: any[] = [];
 
-      // Header index: Nombre, SKU, CodigoBarras, Categoria, Stock, Costo, Precio
-      // We skip index 0 (header)
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
 
-        // Parse CSV columns allowing quoted strings with commas
-        // High-fidelity regex for CSV cell splitting
         const cols = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
-        
-        if (cols.length < 5) continue; // skip rows with insufficient columns
+        if (cols.length < 5) continue;
 
         const name = cols[0].replace(/^"|"$/g, '').trim();
         const sku = cols[1]?.replace(/^"|"$/g, '').trim() || undefined;
@@ -238,52 +204,19 @@ export default function InventoryView({ state, onUpdateState }: InventoryViewPro
         const price = parseFloat(cols[6]?.replace(/^"|"$/g, '')) || 0;
 
         if (!name || !barcode) continue;
-
-        // Check if barcode already exists. If yes, update it. If not, insert it!
-        const existingIdx = updatedProducts.findIndex(p => p.barcode === barcode);
-        if (existingIdx !== -1) {
-          // Update existing
-          updatedProducts[existingIdx] = {
-            ...updatedProducts[existingIdx],
-            name,
-            sku,
-            category,
-            stock,
-            cost,
-            price
-          };
-          updatedCount++;
-        } else {
-          // Create new product
-          updatedProducts.push({
-            id: 'p_csv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-            name,
-            sku,
-            barcode,
-            category,
-            stock,
-            cost,
-            price
-          });
-          importedCount++;
-        }
+        productsToImport.push({ name, sku, barcode, category, stock, cost, price });
       }
 
-      let newState: SystemState = {
-        ...state,
-        products: updatedProducts
-      };
-
-      newState = addAuditLog(
-        newState, 
-        'inventory', 
-        `Importación de inventario CSV por ${state.currentUser?.name}. Agregados: ${importedCount} productos, Actualizados: ${updatedCount} productos.`
-      );
-
-      onUpdateState(newState);
-      toast(`CSV Procesado con éxito! Productos Nuevos: ${importedCount}, Actualizados: ${updatedCount}`);
+      try {
+        const result = await bulkImportProducts(productsToImport);
+        await storeAuditLog('inventory',
+          `Importación de inventario CSV por ${state.currentUser?.name}. Agregados: ${result.imported} productos, Actualizados: ${result.updated} productos.`
+        );
+        toast(`CSV Procesado con éxito! Productos Nuevos: ${result.imported}, Actualizados: ${result.updated}`);
+      } catch (err: any) {
+        toast(err.message || 'Error al importar CSV.', 'error');
+      }
       
-      // Reset input value to allow uploading same file again
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
 

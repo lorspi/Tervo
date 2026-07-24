@@ -1,14 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   LayoutDashboard, FileText, ShoppingCart, Package, Users,
-  CreditCard, Settings, LogOut, Lock, Unlock, Menu, X
+  CreditCard, Settings, LogOut, Lock, Unlock, Menu, X, Wifi, WifiOff
 } from 'lucide-react';
 
 import { useAppStore, applyTheme } from './store';
 import { SystemState, Sale } from './types';
 
 import { ThemeToggle } from './components/ThemeToggle';
-import LoadFolderScreen from './components/LoadFolderScreen';
 import DashboardView from './components/DashboardView';
 import ReportsView from './components/ReportsView';
 import SalesView from './components/SalesView';
@@ -24,8 +23,8 @@ type ActiveView = 'dashboard' | 'reports' | 'sales' | 'inventory' | 'clients' | 
 
 export default function App() {
   const {
-    adapter, isLoading, data, currentUser, currentSessionId,
-    initialize, login, logout, updateData, addAuditLog, backgroundReload, closeProject, theme
+    isLoading, isConnected, data, currentUser, currentSessionId, terminalId,
+    initialize, login, logout, refreshData, addAuditLog, theme
   } = useAppStore();
 
   const [activeView, setActiveView] = useState<ActiveView>('dashboard');
@@ -44,27 +43,34 @@ export default function App() {
     applyTheme(theme);
   }, []);
 
-  // Background reload polling (every 7 seconds)
+  // Background data refresh (every 7 seconds)
   useEffect(() => {
-    if (!adapter) return;
+    if (!currentUser) return;
     const interval = setInterval(() => {
-      backgroundReload();
+      refreshData();
     }, 7000);
     return () => clearInterval(interval);
-  }, [adapter, backgroundReload]);
+  }, [currentUser, refreshData]);
+
+  // Heartbeat to keep session alive (every 15 seconds)
+  useEffect(() => {
+    if (!currentUser) return;
+    const { default: api } = { default: null }; // import handled via store
+    const interval = setInterval(() => {
+      import('./utils/api').then(({ authApi }) => {
+        authApi.heartbeat().catch(() => {});
+      });
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
   // Active cash session
   const activeSession = useMemo(() => {
     if (!currentSessionId) return null;
-    return data.cashSessions.find(s => s.id === currentSessionId) || null;
+    return data.cashSessions.find((s: any) => s.id === currentSessionId) || null;
   }, [data.cashSessions, currentSessionId]);
 
-  // Handle state updates (bridge for child components)
-  const handleUpdateState = (newState: SystemState) => {
-    updateData(newState);
-  };
-
-  // Build state object for child components (keeping backward compatibility)
+  // Build state object for child components (backward compatibility)
   const state: SystemState = useMemo(() => ({
     ...data,
     currentUser,
@@ -72,25 +78,25 @@ export default function App() {
   }), [data, currentUser, currentSessionId]);
 
   // Login
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
-    const error = login(loginUsername.trim(), loginPassword);
+    const error = await login(loginUsername.trim(), loginPassword);
     if (error) {
       setLoginError(error);
     } else {
-      addAuditLog('system_status', `Sesión iniciada por ${loginUsername.trim()}`);
+      addAuditLog('system_status', `Sesión iniciada por ${loginUsername.trim()} en terminal ${terminalId}`);
       setLoginUsername('');
       setLoginPassword('');
     }
   };
 
   // Logout
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (currentUser) {
-      addAuditLog('system_status', `Sesión cerrada por ${currentUser.name}`);
+      await addAuditLog('system_status', `Sesión cerrada por ${currentUser.name}`);
     }
-    logout();
+    await logout();
     setActiveView('dashboard');
     setIsMobileMenuOpen(false);
   };
@@ -120,12 +126,12 @@ export default function App() {
     switch (activeView) {
       case 'dashboard': return <DashboardView state={state} />;
       case 'reports': return <ReportsView state={state} />;
-      case 'sales': return <SalesView state={state} onUpdateState={handleUpdateState} />;
-      case 'inventory': return <InventoryView state={state} onUpdateState={handleUpdateState} />;
-      case 'clients': return <ClientsView state={state} onUpdateState={handleUpdateState} />;
-      case 'payments': return <PaymentMethodsView state={state} onUpdateState={handleUpdateState} />;
-      case 'users': return <UsersView state={state} onUpdateState={handleUpdateState} />;
-      case 'settings': return <SettingsView state={state} onUpdateState={handleUpdateState} />;
+      case 'sales': return <SalesView state={state} onUpdateState={() => {}} />;
+      case 'inventory': return <InventoryView state={state} onUpdateState={() => {}} />;
+      case 'clients': return <ClientsView state={state} onUpdateState={() => {}} />;
+      case 'payments': return <PaymentMethodsView state={state} onUpdateState={() => {}} />;
+      case 'users': return <UsersView state={state} onUpdateState={() => {}} />;
+      case 'settings': return <SettingsView state={state} onUpdateState={() => {}} />;
       default: return <DashboardView state={state} />;
     }
   };
@@ -144,15 +150,10 @@ export default function App() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 animate-fade-in">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-          <p className="text-xs text-muted-foreground font-semibold">Cargando...</p>
+          <p className="text-xs text-muted-foreground font-semibold">Conectando con el servidor...</p>
         </div>
       </div>
     );
-  }
-
-  // No folder selected - show folder selection screen
-  if (!adapter) {
-    return <LoadFolderScreen />;
   }
 
   // Not logged in - show login
@@ -169,8 +170,12 @@ export default function App() {
             <img src="/logo-light.svg" alt="Logo" className="h-14 block dark:hidden" />
             <img src="/logo-dark.svg" alt="Logo" className="h-14 hidden dark:block" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground font-heading">{data.config.storeName}</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground font-heading">{data.config.storeName || 'Tervo POS'}</h2>
           <p className="text-xs text-muted-foreground">Inicia sesión para registrar ventas o administrar el negocio.</p>
+          <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
+            <Wifi className="h-3 w-3" />
+            <span>Terminal: {terminalId.substring(0, 20)}</span>
+          </div>
         </div>
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -211,16 +216,6 @@ export default function App() {
                 Ingresar al Sistema
               </button>
             </form>
-
-            {/* Change folder button */}
-            <div className="border-t border-border pt-4">
-              <button
-                onClick={closeProject}
-                className="w-full text-center text-[10px] text-muted-foreground hover:text-foreground font-semibold transition-colors cursor-pointer"
-              >
-                ← Cambiar carpeta de datos
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -265,7 +260,7 @@ export default function App() {
               </div>
               <div className="min-w-0">
                 <h1 className="font-bold text-sm leading-snug truncate font-heading">{data.config.storeName}</h1>
-                <span className="text-[10px] text-muted-foreground font-mono tracking-widest">POS OFFLINE</span>
+                <span className="text-[10px] text-muted-foreground font-mono tracking-widest">POS EN RED</span>
               </div>
             </div>
 
@@ -377,7 +372,7 @@ export default function App() {
                 {activeView === 'settings' && "Configuración"}
               </h1>
               <p className="text-[10px] text-muted-foreground font-medium">
-                {activeSession ? `Caja Abierta` : 'Caja Cerrada'} • Datos locales
+                {activeSession ? `Caja Abierta` : 'Caja Cerrada'} • Conectado al servidor
               </p>
             </div>
 
@@ -418,6 +413,10 @@ export default function App() {
                 <span className={`h-1.5 w-1.5 rounded-full ${activeSession ? 'bg-bento-green animate-pulse-slow' : 'bg-bento-orange'}`} />
                 {activeSession ? 'Operativa' : 'Fuera de turno'}
               </span>
+              <span className="flex items-center gap-1">
+                <Wifi className="h-3 w-3" />
+                En red
+              </span>
             </div>
             <span className="hidden sm:block font-mono">
               {new Date().toLocaleDateString('es-CL', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
@@ -429,14 +428,14 @@ export default function App() {
       {/* Modals */}
       <OpenCloseSessionModal
         state={state}
-        onUpdateState={handleUpdateState}
+        onUpdateState={() => {}}
         isOpenModal={isOpenSessionOpen}
         isCloseModal={isCloseSessionOpen}
         onClose={() => { setIsOpenSessionOpen(false); setIsCloseSessionOpen(false); }}
       />
       <NewSaleModal
         state={state}
-        onUpdateState={handleUpdateState}
+        onUpdateState={() => {}}
         isOpen={isNewSaleOpen}
         onClose={() => setIsNewSaleOpen(false)}
         onTriggerPrint={handleTriggerSalePrint}
