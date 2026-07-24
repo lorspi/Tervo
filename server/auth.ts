@@ -4,7 +4,7 @@ import { getDb, persistDatabase } from './database';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tervo-pos-secret-key-change-in-production';
 const TOKEN_EXPIRY = '12h';
-const HEARTBEAT_TIMEOUT_MS = 30000; // 30 seconds without heartbeat = session expired
+const HEARTBEAT_TIMEOUT_MS = 120000; // 2 minutes without heartbeat = session expired
 
 export interface AuthPayload {
   userId: string;

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { authMiddleware, adminMiddleware } from '../auth';
+import { authMiddleware, adminMiddleware, updateHeartbeat } from '../auth';
 import { getDb } from '../database';
 
 const router = Router();
@@ -7,6 +7,10 @@ const router = Router();
 // GET /api/terminals/status - Get all active terminals with their cash session + sales stats
 router.get('/status', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
   const db = getDb();
+  const user = (req as any).user;
+
+  // Update heartbeat for the requesting admin so their session stays alive
+  updateHeartbeat(user.userId, user.terminalId);
 
   // Get all active sessions (logged-in users)
   const sessionsResult = db.exec(
