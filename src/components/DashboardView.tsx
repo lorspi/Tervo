@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { SystemState, Product } from '../types';
-import { TrendingUp, AlertTriangle, DollarSign, CreditCard, ShoppingCart, Percent } from 'lucide-react';
+import { TrendingUp, AlertTriangle, DollarSign, CreditCard, ShoppingCart, Percent, Monitor, Wifi, Lock, Unlock, User } from 'lucide-react';
+import { terminalsApi } from '../utils/api';
 
 interface DashboardViewProps {
   state: SystemState;
@@ -8,8 +9,58 @@ interface DashboardViewProps {
 
 type FilterType = 'today' | 'month' | 'session' | 'all';
 
+interface TerminalStatus {
+  userId: string;
+  terminalId: string;
+  loginTime: string;
+  lastHeartbeat: string;
+  userName: string;
+  username: string;
+  role: string;
+  cashSession: {
+    id: string;
+    openDate: string;
+    closeDate?: string;
+    initialCash: number;
+    expectedAmounts: Record<string, number>;
+    status: 'open' | 'closed';
+  } | null;
+  salesStats: {
+    salesCount: number;
+    totalCollected: number;
+    subtotal: number;
+  } | null;
+}
+
 export default function DashboardView({ state }: DashboardViewProps) {
   const [filter, setFilter] = useState<FilterType>('all');
+  const [terminals, setTerminals] = useState<TerminalStatus[]>([]);
+  const [terminalsLoading, setTerminalsLoading] = useState(false);
+
+  const isAdmin = state.currentUser?.role === 'admin';
+
+  // Load terminal status for admins
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelled = false;
+
+    const loadTerminals = async () => {
+      setTerminalsLoading(true);
+      try {
+        const data = await terminalsApi.getStatus();
+        if (!cancelled) setTerminals(data);
+      } catch (err) {
+        console.warn('Error cargando terminales:', err);
+        if (!cancelled) setTerminals([]);
+      } finally {
+        if (!cancelled) setTerminalsLoading(false);
+      }
+    };
+
+    loadTerminals();
+    const interval = setInterval(loadTerminals, 10000); // refresh every 10s
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [isAdmin]);
 
   const filteredSales = useMemo(() => {
     const now = new Date();
@@ -53,6 +104,16 @@ export default function DashboardView({ state }: DashboardViewProps) {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(amount);
   };
 
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDateTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  };
+
   return (
     <div className="space-y-6">
       {/* Title & Filter */}
@@ -79,6 +140,109 @@ export default function DashboardView({ state }: DashboardViewProps) {
           ))}
         </div>
       </div>
+
+      {/* Admin: Terminals Panel */}
+      {isAdmin && (
+        <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
+          <h2 className="text-xs font-bold text-muted-foreground mb-4 flex items-center gap-2">
+            <Monitor className="h-4 w-4" />
+            Terminales Conectadas
+            {terminals.length > 0 && (
+              <span className="ml-auto text-[10px] bg-bento-green-light text-bento-green px-2 py-0.5 rounded-full font-bold">
+                {terminals.length} activa{terminals.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </h2>
+
+          {terminalsLoading && terminals.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">Cargando estado de terminales...</p>
+          ) : terminals.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <p className="text-xs">No hay vendedores conectados actualmente.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {terminals.map(t => {
+                const isCashOpen = t.cashSession?.status === 'open';
+                const totalExpected = t.cashSession
+                  ? (Object.values(t.cashSession.expectedAmounts) as number[]).reduce((a, b) => a + b, 0)
+                  : 0;
+
+                return (
+                  <div key={t.terminalId} className="border border-border rounded-xl p-4 bg-secondary/30 space-y-3">
+                    {/* User info */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-bento-blue flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                          {t.userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-foreground">{t.userName}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">@{t.username}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Wifi className="h-3 w-3 text-bento-green" />
+                        <span className="text-[9px] text-bento-green font-bold">EN LÍNEA</span>
+                      </div>
+                    </div>
+
+                    {/* Cash session status */}
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${
+                      isCashOpen
+                        ? 'bg-bento-green-light text-emerald-700 border border-emerald-200'
+                        : 'bg-secondary text-muted-foreground border border-border'
+                    }`}>
+                      {isCashOpen ? (
+                        <>
+                          <Unlock className="h-3.5 w-3.5" />
+                          <span>Caja Abierta</span>
+                          <span className="ml-auto text-[10px] font-mono">
+                            desde {formatTime(t.cashSession!.openDate)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-3.5 w-3.5" />
+                          <span>{t.cashSession ? 'Caja Cerrada' : 'Sin caja registrada'}</span>
+                          {t.cashSession?.closeDate && (
+                            <span className="ml-auto text-[10px] font-mono">
+                              {formatDateTime(t.cashSession.closeDate)}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Sales stats */}
+                    {t.salesStats && t.salesStats.salesCount > 0 ? (
+                      <div className="grid grid-cols-2 gap-2 text-center">
+                        <div className="bg-card border border-border rounded-lg p-2">
+                          <p className="text-[9px] text-muted-foreground font-bold">VENTAS</p>
+                          <p className="text-sm font-black text-foreground font-mono">{t.salesStats.salesCount}</p>
+                        </div>
+                        <div className="bg-card border border-border rounded-lg p-2">
+                          <p className="text-[9px] text-muted-foreground font-bold">RECAUDADO</p>
+                          <p className="text-sm font-black text-bento-green font-mono">{formatMoney(t.salesStats.totalCollected)}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground text-center italic py-1">
+                        Sin ventas en esta caja.
+                      </p>
+                    )}
+
+                    {/* Terminal ID */}
+                    <p className="text-[9px] text-muted-foreground font-mono truncate border-t border-border pt-2">
+                      Terminal: {t.terminalId.substring(0, 24)}...
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

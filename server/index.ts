@@ -17,6 +17,7 @@ import salesRoutes from './routes/sales.routes';
 import cashSessionsRoutes from './routes/cash-sessions.routes';
 import configRoutes from './routes/config.routes';
 import auditRoutes from './routes/audit.routes';
+import terminalsRoutes from './routes/terminals.routes';
 
 const PORT = parseInt(process.env.PORT || '3001');
 
@@ -44,6 +45,7 @@ async function main() {
   app.use('/api/cash-sessions', cashSessionsRoutes);
   app.use('/api/config', configRoutes);
   app.use('/api/audit-logs', auditRoutes);
+  app.use('/api/terminals', terminalsRoutes);
 
   // Serve static frontend in production
   const distPath = path.join(__dirname, '..', 'dist');

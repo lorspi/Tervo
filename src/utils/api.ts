@@ -210,3 +210,20 @@ export const auditLogsApi = {
       body: JSON.stringify({ actionType, details }),
     }),
 };
+
+// ============ TERMINALS API ============
+
+export const terminalsApi = {
+  getStatus: () =>
+    request<Array<{
+      userId: string;
+      terminalId: string;
+      loginTime: string;
+      lastHeartbeat: string;
+      userName: string;
+      username: string;
+      role: string;
+      cashSession: any | null;
+      salesStats: { salesCount: number; totalCollected: number; subtotal: number } | null;
+    }>>('/api/terminals/status'),
+};
