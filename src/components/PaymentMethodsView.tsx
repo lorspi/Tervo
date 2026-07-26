@@ -3,6 +3,7 @@ import { SystemState, PaymentMethod } from '../types';
 import { Plus, Edit2, Check, CreditCard, DollarSign, Percent, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
+import Portal from './Portal';
 
 interface PaymentMethodsViewProps {
   state: SystemState;
@@ -172,6 +173,7 @@ export default function PaymentMethodsView({ state, onUpdateState }: PaymentMeth
 
       {/* CREATE OR EDIT MODAL */}
       {(editingMethod || isCreateOpen) && (
+        <Portal>
         <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
           <form 
             onSubmit={handleSavePaymentMethod}
@@ -268,6 +270,7 @@ export default function PaymentMethodsView({ state, onUpdateState }: PaymentMeth
             </div>
           </form>
         </div>
+        </Portal>
       )}
 
     </div>

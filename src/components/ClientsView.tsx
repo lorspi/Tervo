@@ -3,6 +3,7 @@ import { SystemState, Client } from '../types';
 import { Plus, Edit2, Search, Trash2, Check, UserPlus, Phone, Mail, MapPin, CreditCard } from 'lucide-react';
 import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
+import Portal from './Portal';
 
 interface ClientsViewProps {
   state: SystemState;
@@ -208,6 +209,7 @@ export default function ClientsView({ state, onUpdateState }: ClientsViewProps) 
 
       {/* CREATE OR EDIT MODAL */}
       {(editingClient || isCreateOpen) && (
+        <Portal>
         <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
           <form 
             onSubmit={handleSaveClient}
@@ -310,6 +312,7 @@ export default function ClientsView({ state, onUpdateState }: ClientsViewProps) 
             </div>
           </form>
         </div>
+        </Portal>
       )}
 
     </div>

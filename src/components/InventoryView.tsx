@@ -3,6 +3,7 @@ import { SystemState, Product } from '../types';
 import { 
   Plus, Edit2, Download, Upload, Search, Package, Trash2, Check, AlertCircle, HelpCircle
 } from 'lucide-react';
+import Portal from './Portal';
 import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
 
@@ -408,6 +409,7 @@ export default function InventoryView({ state, onUpdateState }: InventoryViewPro
 
       {/* CREATE OR EDIT MODAL */}
       {(editingProduct || isCreateOpen) && (
+        <Portal>
         <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
           <form 
             onSubmit={handleSaveProduct}
@@ -551,6 +553,7 @@ export default function InventoryView({ state, onUpdateState }: InventoryViewPro
             </div>
           </form>
         </div>
+        </Portal>
       )}
 
     </div>

@@ -3,6 +3,7 @@ import { SystemState, User, UserRole } from '../types';
 import { Plus, Edit2, Check, UserPlus, Shield, UserX, ShieldCheck } from 'lucide-react';
 import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
+import Portal from './Portal';
 
 interface UsersViewProps {
   state: SystemState;
@@ -197,6 +198,7 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
 
       {/* CREATE OR EDIT MODAL */}
       {(editingUser || isCreateOpen) && (
+        <Portal>
         <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
           <form 
             onSubmit={handleSaveUser}
@@ -300,6 +302,7 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
             </div>
           </form>
         </div>
+        </Portal>
       )}
 
     </div>

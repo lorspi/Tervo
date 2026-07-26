@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
+import Portal from './Portal';
 
 interface SalesViewProps {
   state: SystemState;
@@ -272,6 +273,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
 
       {/* EDIT SALE MODAL */}
       {editingSale && (
+        <Portal>
         <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl shadow-card-hover border border-border max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-4 border-b border-border bg-secondary flex items-center justify-between">
@@ -500,6 +502,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
             </div>
           </div>
         </div>
+        </Portal>
       )}
 
     </div>
