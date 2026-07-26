@@ -193,11 +193,60 @@ function seedDefaultData() {
 }
 
 export function persistDatabase() {
-  const data = db.export();
-  const buffer = Buffer.from(data);
-  fs.writeFileSync(DB_PATH, buffer);
+  schedulePersist();
+}
+
+// Debounced disk persistence - groups rapid writes into a single flush
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+const PERSIST_DELAY_MS = 500; // Write to disk at most every 500ms
+
+function schedulePersist() {
+  if (persistTimer) return; // already scheduled
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    flushToFile();
+  }, PERSIST_DELAY_MS);
+}
+
+function flushToFile() {
+  try {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    // Write to temp file first, then rename (atomic on most filesystems)
+    const tmpPath = DB_PATH + '.tmp';
+    fs.writeFileSync(tmpPath, buffer);
+    fs.renameSync(tmpPath, DB_PATH);
+  } catch (err) {
+    console.error('Error persisting database to disk:', err);
+  }
+}
+
+// Force immediate persist (for shutdown scenarios)
+export function forcePersist() {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  flushToFile();
+}
+
+// Run a set of operations inside a SQLite transaction (atomic)
+export function withTransaction(fn: () => void): void {
+  db.run('BEGIN TRANSACTION');
+  try {
+    fn();
+    db.run('COMMIT');
+  } catch (err) {
+    db.run('ROLLBACK');
+    throw err;
+  }
 }
 
 export function getDb(): Database {
   return db;
 }
+
+// Ensure data is flushed before process exits
+process.on('SIGINT', () => { forcePersist(); process.exit(0); });
+process.on('SIGTERM', () => { forcePersist(); process.exit(0); });
+process.on('exit', () => { forcePersist(); });
