@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { SystemState, Sale, Product, Client } from '../types';
 import { 
   Search, Eye, Edit2, FileText, ArrowLeft, Trash2, Plus, Minus,
-  AlertTriangle, Check, User, Calendar, CreditCard, ShoppingBag
+  AlertTriangle, Check, User, Calendar, CreditCard, ShoppingBag, X, UserPlus
 } from 'lucide-react';
 import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
@@ -14,13 +14,21 @@ interface SalesViewProps {
 
 export default function SalesView({ state, onUpdateState }: SalesViewProps) {
   const { toast } = useUI();
-  const { updateSale, addAuditLog: storeAuditLog } = useAppStore();
+  const { updateSale, createClient, addAuditLog: storeAuditLog } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [sessionFilter, setSessionFilter] = useState<string>('current_or_last');
   
   // Editing Sales States
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [editClient, setEditClient] = useState<string>('');
+  const [editClientName, setEditClientName] = useState<string>('');
+  const [editClientSearch, setEditClientSearch] = useState('');
+  const [isEditClientDropdownOpen, setIsEditClientDropdownOpen] = useState(false);
+  const [isNewClientFormOpen, setIsNewClientFormOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientDocument, setNewClientDocument] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const editClientInputRef = useRef<HTMLInputElement>(null);
   const [editItems, setEditItems] = useState<Sale['items']>([]);
 
   // Find latest session
@@ -65,10 +73,25 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
   };
 
   // Open Edit Sale modal
+  // Edit client search results
+  const editClientSearchResults = useMemo(() => {
+    if (!editClientSearch.trim()) return state.clients.slice(0, 5);
+    const term = editClientSearch.toLowerCase();
+    return state.clients.filter(c => 
+      c.name.toLowerCase().includes(term) ||
+      (c.document || '').toLowerCase().includes(term) ||
+      (c.phone || '').toLowerCase().includes(term)
+    ).slice(0, 5);
+  }, [state.clients, editClientSearch]);
+
   const handleStartEditSale = (sale: Sale) => {
     setEditingSale(sale);
     setEditClient(sale.clientId || '');
-    setEditItems(JSON.parse(JSON.stringify(sale.items))); // deep clone
+    setEditClientName(sale.clientName || '');
+    setEditClientSearch('');
+    setIsEditClientDropdownOpen(false);
+    setIsNewClientFormOpen(false);
+    setEditItems(JSON.parse(JSON.stringify(sale.items)));
   };
 
   // Edit sale items counters
@@ -99,8 +122,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
   const handleSaveSaleEdits = async () => {
     if (!editingSale) return;
 
-    const client = state.clients.find(c => c.id === editClient);
-    const clientName = client ? client.name : 'Cliente General';
+    const clientName = editClientName || undefined;
     const itemsSubtotal = editItems.reduce((acc, item) => acc + item.subtotal, 0);
 
     // Recalculate proportionally
@@ -260,19 +282,141 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
               
               {/* Client Edit */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase">Cliente Asignado</label>
-                <select
-                  value={editClient}
-                  onChange={(e) => setEditClient(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-xl text-sm bg-card focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="">Cliente General</option>
-                  {state.clients.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} {c.document ? `(${c.document})` : ''}</option>
-                  ))}
-                </select>
+              <div className="space-y-1.5 relative">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Cliente (Opcional)</label>
+                {editClient ? (
+                  <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-xl bg-secondary">
+                    <span className="text-xs font-semibold text-foreground flex-1">{editClientName}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setEditClient(''); setEditClientName(''); setEditClientSearch(''); }}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <User className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <input
+                      ref={editClientInputRef}
+                      type="text"
+                      placeholder="Buscar cliente por nombre o documento..."
+                      value={editClientSearch}
+                      onChange={(e) => { setEditClientSearch(e.target.value); setIsEditClientDropdownOpen(true); }}
+                      onFocus={() => setIsEditClientDropdownOpen(true)}
+                      className="w-full pl-8 pr-3 py-2 border border-border rounded-xl text-xs bg-card placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                )}
+
+                {/* Client search dropdown */}
+                {isEditClientDropdownOpen && !editClient && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden max-h-[200px] overflow-y-auto">
+                    {editClientSearchResults.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setEditClient(c.id);
+                          setEditClientName(c.name);
+                          setEditClientSearch('');
+                          setIsEditClientDropdownOpen(false);
+                        }}
+                        className="w-full text-left p-2.5 hover:bg-secondary flex items-center justify-between text-xs transition-colors border-b border-border last:border-0"
+                      >
+                        <div>
+                          <p className="font-semibold text-foreground">{c.name}</p>
+                          {c.document && <p className="text-[10px] text-muted-foreground">{c.document}</p>}
+                        </div>
+                        {c.phone && <span className="text-[10px] text-muted-foreground">{c.phone}</span>}
+                      </button>
+                    ))}
+                    {editClientSearchResults.length === 0 && editClientSearch.trim() && (
+                      <p className="text-xs text-muted-foreground text-center py-3 italic">Sin resultados</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditClientDropdownOpen(false);
+                        setIsNewClientFormOpen(true);
+                        setNewClientName(editClientSearch);
+                      }}
+                      className="w-full text-left p-2.5 hover:bg-bento-blue-light flex items-center gap-2 text-xs font-semibold text-bento-blue transition-colors border-t border-border"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Agregar nuevo cliente
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {/* New Client inline form */}
+              {isNewClientFormOpen && (
+                <div className="bg-secondary border border-border rounded-xl p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-foreground">Nuevo Cliente</h4>
+                    <button type="button" onClick={() => setIsNewClientFormOpen(false)} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Nombre completo *"
+                      value={newClientName}
+                      onChange={(e) => setNewClientName(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-border rounded-lg text-xs bg-card focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="RUT / Documento"
+                        value={newClientDocument}
+                        onChange={(e) => setNewClientDocument(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-border rounded-lg text-xs bg-card focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Teléfono"
+                        value={newClientPhone}
+                        onChange={(e) => setNewClientPhone(e.target.value)}
+                        className="w-full px-3 py-1.5 border border-border rounded-lg text-xs bg-card focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!newClientName.trim()) return;
+                      try {
+                        await createClient({
+                          name: newClientName.trim(),
+                          document: newClientDocument || undefined,
+                          phone: newClientPhone || undefined,
+                        });
+                        const { data } = useAppStore.getState();
+                        const created = data.clients.find(c => c.name === newClientName.trim());
+                        if (created) {
+                          setEditClient(created.id);
+                          setEditClientName(created.name);
+                        }
+                        setIsNewClientFormOpen(false);
+                        setNewClientName('');
+                        setNewClientDocument('');
+                        setNewClientPhone('');
+                        setEditClientSearch('');
+                      } catch (err: any) {
+                        toast(err.message || 'Error al crear cliente.', 'error');
+                      }
+                    }}
+                    className="w-full py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer hover:opacity-90"
+                  >
+                    <Check className="h-3 w-3" />
+                    Registrar y Seleccionar
+                  </button>
+                </div>
+              )}
 
               {/* Items List */}
               <div className="space-y-2">
