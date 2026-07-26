@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { SystemState, Sale, Product, Client } from '../types';
 import { 
-  Search, Eye, Edit2, FileText, Printer, ArrowLeft, Trash2, Plus, Minus,
+  Search, Eye, Edit2, FileText, ArrowLeft, Trash2, Plus, Minus,
   AlertTriangle, Check, User, Calendar, CreditCard, ShoppingBag
 } from 'lucide-react';
 import { useAppStore } from '../store';
@@ -16,8 +16,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
   const { toast } = useUI();
   const { updateSale, addAuditLog: storeAuditLog } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [sessionFilter, setSessionFilter] = useState<string>('current_or_last'); // 'all' | 'current_or_last' | specificId
-  const [selectedSaleForReceipt, setSelectedSaleForReceipt] = useState<Sale | null>(null);
+  const [sessionFilter, setSessionFilter] = useState<string>('current_or_last');
   
   // Editing Sales States
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
@@ -63,14 +62,6 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  };
-
-  // Receipt printing handler
-  const triggerPrintReceipt = (sale: Sale) => {
-    setSelectedSaleForReceipt(sale);
-    setTimeout(() => {
-      window.print();
-    }, 200);
   };
 
   // Open Edit Sale modal
@@ -234,13 +225,6 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
                   <td className="p-4">
                     <div className="flex items-center justify-center gap-1.5">
                       <button
-                        onClick={() => triggerPrintReceipt(sale)}
-                        className="p-1.5 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-xl transition-colors cursor-pointer"
-                        title="Imprimir Boleta PDF"
-                      >
-                        <Printer className="h-4 w-4" />
-                      </button>
-                      <button
                         onClick={() => handleStartEditSale(sale)}
                         className="p-1.5 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-xl transition-colors cursor-pointer"
                         title="Editar Venta"
@@ -373,132 +357,6 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
           </div>
         </div>
       )}
-
-      {/* PRISTINE HIDDEN PRINT CONTAINER (TICKET STYLE) */}
-      <div className="hidden">
-        {state.sales.map(sale => (
-          <div 
-            key={`print-receipt-${sale.id}`} 
-            id={`print-receipt-content-${sale.id}`} 
-            className="print:block p-8 bg-card text-foreground font-mono text-xs w-[300px] mx-auto space-y-6"
-            style={{ fontFamily: 'monospace' }}
-          >
-            {/* Header */}
-            <div className="text-center space-y-1">
-              <h1 className="text-base font-bold uppercase tracking-wider">{state.config.storeName}</h1>
-              <p className="text-[10px] text-muted-foreground whitespace-pre-line leading-tight">{state.config.storeInfo}</p>
-            </div>
-
-            <hr className="border-dashed border-slate-300" />
-
-            {/* Ticket Metadata */}
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <span>BOLETA:</span>
-                <span className="font-bold">{sale.code}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>FECHA:</span>
-                <span>{formatDate(sale.date)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>CAJERO:</span>
-                <span className="uppercase">{sale.cashierName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>CLIENTE:</span>
-                <span className="uppercase">{sale.clientName || 'CLIENTE GENERAL'}</span>
-              </div>
-            </div>
-
-            <hr className="border-dashed border-slate-300" />
-
-            {/* Products Table */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-[10px] font-bold">
-                <span className="w-1/2">PRODUCTO</span>
-                <span className="w-1/6 text-center">CANT</span>
-                <span className="w-1/3 text-right">TOTAL</span>
-              </div>
-              <div className="space-y-1">
-                {sale.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-start">
-                    <span className="w-1/2 break-all">{item.name}</span>
-                    <span className="w-1/6 text-center">{item.quantity}</span>
-                    <span className="w-1/3 text-right">{formatMoney(item.subtotal)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <hr className="border-dashed border-slate-300" />
-
-            {/* Financial Breakdown */}
-            <div className="space-y-1 text-right">
-              <div className="flex justify-between">
-                <span>SUBTOTAL NETO:</span>
-                <span>{formatMoney(sale.subtotal)}</span>
-              </div>
-              {sale.totalCommissions + sale.totalFees > 0 && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>CARGO/COMISIÓN:</span>
-                  <span>{formatMoney(sale.totalCommissions + sale.totalFees)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold text-sm border-t border-dashed border-slate-300 pt-1">
-                <span>TOTAL A PAGAR:</span>
-                <span>{formatMoney(sale.totalPayable)}</span>
-              </div>
-            </div>
-
-            <hr className="border-dashed border-slate-300" />
-
-            {/* Payments breakdown */}
-            <div className="space-y-1">
-              <p className="font-bold text-[10px]">DETALLE PAGOS:</p>
-              {sale.payments.map((p, i) => (
-                <div key={i} className="flex justify-between text-[10px]">
-                  <span>{p.methodName}:</span>
-                  <span>{formatMoney(p.amount)}</span>
-                </div>
-              ))}
-            </div>
-
-            <hr className="border-dashed border-slate-300" />
-
-            <div className="text-center text-[10px] space-y-1 pt-2">
-              <p className="font-bold">¡GRACIAS POR SU COMPRA!</p>
-              <p className="text-muted-foreground">Desarrollado en Entorno POS Local</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Global CSS Inject to support isolated ticket printing */}
-      <style dangerouslySetInnerHTML={{__html: `
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          /* Only display the triggered content container */
-          [id^="print-receipt-content-"] {
-            display: none !important;
-          }
-          /* Set target print element visible */
-          ${selectedSaleForReceipt ? `#print-receipt-content-${selectedSaleForReceipt.id}, #print-receipt-content-${selectedSaleForReceipt.id} *` : ''} {
-            visibility: visible !important;
-            display: block !important;
-          }
-          ${selectedSaleForReceipt ? `#print-receipt-content-${selectedSaleForReceipt.id}` : ''} {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-        }
-      `}} />
 
     </div>
   );

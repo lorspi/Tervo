@@ -12,7 +12,6 @@ interface NewSaleModalProps {
   onUpdateState: (newState: SystemState) => void;
   isOpen: boolean;
   onClose: () => void;
-  onTriggerPrint: (sale: Sale) => void; // callback to let App trigger the boleta printable view instantly!
 }
 
 export default function NewSaleModal({ 
@@ -20,7 +19,6 @@ export default function NewSaleModal({
   onUpdateState, 
   isOpen, 
   onClose,
-  onTriggerPrint
 }: NewSaleModalProps) {
   
   const { toast } = useUI();
@@ -312,11 +310,6 @@ export default function NewSaleModal({
       await storeAddAuditLog('inventory', logSummary);
 
       onClose();
-
-      // Trigger instant print boleta feedback!
-      setTimeout(() => {
-        onTriggerPrint(newSale);
-      }, 300);
     } catch (err: any) {
       toast(err.message || 'Error al registrar la venta.', 'error');
     } finally {
@@ -713,7 +706,7 @@ export default function NewSaleModal({
               }`}
             >
               <Check className="h-4 w-4" />
-              Emitir Venta y Boleta PDF
+              Emitir Venta
             </button>
             <button
               type="button"

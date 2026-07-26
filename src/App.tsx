@@ -35,7 +35,6 @@ export default function App() {
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const [isOpenSessionOpen, setIsOpenSessionOpen] = useState(false);
   const [isCloseSessionOpen, setIsCloseSessionOpen] = useState(false);
-  const [printableSale, setPrintableSale] = useState<Sale | null>(null);
 
   // Initialize app and apply theme
   useEffect(() => {
@@ -156,14 +155,6 @@ export default function App() {
       case 'settings': return <SettingsView state={state} onUpdateState={() => {}} />;
       default: return <DashboardView state={state} />;
     }
-  };
-
-  const handleTriggerSalePrint = (sale: Sale) => {
-    setPrintableSale(sale);
-    setTimeout(() => {
-      window.print();
-      setPrintableSale(null);
-    }, 250);
   };
 
   // Loading state
@@ -461,24 +452,7 @@ export default function App() {
         onUpdateState={() => {}}
         isOpen={isNewSaleOpen}
         onClose={() => setIsNewSaleOpen(false)}
-        onTriggerPrint={handleTriggerSalePrint}
       />
-
-      {/* Print receipt (hidden) */}
-      {printableSale && (
-        <div className="hidden print:block p-8 bg-white text-foreground font-mono text-xs w-[300px] mx-auto space-y-4">
-          <div className="text-center space-y-1">
-            <h1 className="text-base font-bold uppercase">{data.config.storeName}</h1>
-            <p className="text-[10px] whitespace-pre-line leading-tight">{data.config.storeInfo}</p>
-          </div>
-          <hr className="border-dashed border-border" />
-          <div className="space-y-1">
-            <div className="flex justify-between"><span>BOLETA:</span><span className="font-bold">{printableSale.code}</span></div>
-            <div className="flex justify-between"><span>FECHA:</span><span>{new Date(printableSale.date).toLocaleDateString('es-CL')}</span></div>
-            <div className="flex justify-between"><span>CAJERO:</span><span>{printableSale.cashierName}</span></div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -141,3 +141,6 @@ body {
 ::-webkit-scrollbar-track { background: hsl(var(--muted)); }
 ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); }
+@media print {
+  body { background: white !important; margin: 0 !important; padding: 0 !important; }
+}
