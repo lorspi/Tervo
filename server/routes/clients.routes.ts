@@ -61,10 +61,6 @@ router.put('/:id', authMiddleware, (req: Request, res: Response) => {
 // DELETE /api/clients/:id
 router.delete('/:id', authMiddleware, (req: Request, res: Response) => {
   const { id } = req.params;
-  if (id === 'c_generic') {
-    res.status(400).json({ error: 'No se puede eliminar el cliente genérico.' });
-    return;
-  }
 
   const db = getDb();
   db.run(`DELETE FROM clients WHERE id = ?`, [id]);

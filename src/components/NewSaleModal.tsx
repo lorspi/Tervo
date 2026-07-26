@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { SystemState, Product, Client, Sale, SaleItem } from '../types';
 import { 
   X, Search, Plus, Minus, Trash2, Check, User, ShoppingCart, 
-  CreditCard, DollarSign, Percent, AlertCircle 
+  CreditCard, DollarSign, Percent, AlertCircle, UserPlus 
 } from 'lucide-react';
 import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
@@ -26,7 +26,15 @@ export default function NewSaleModal({
   const { toast } = useUI();
   // Search state
   const [productSearch, setProductSearch] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState<string>('c_generic'); // default general client
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [selectedClientName, setSelectedClientName] = useState<string>('');
+  const [clientSearch, setClientSearch] = useState('');
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const [isNewClientFormOpen, setIsNewClientFormOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientDocument, setNewClientDocument] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const clientInputRef = useRef<HTMLInputElement>(null);
   
   // Cart state
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
@@ -39,10 +47,39 @@ export default function NewSaleModal({
     if (isOpen) {
       setCart([]);
       setProductSearch('');
-      setSelectedClientId('c_generic');
+      setSelectedClientId('');
+      setSelectedClientName('');
+      setClientSearch('');
+      setIsClientDropdownOpen(false);
+      setIsNewClientFormOpen(false);
       setPayments({});
     }
   }, [isOpen]);
+
+  // Client search results
+  const clientSearchResults = useMemo(() => {
+    if (!clientSearch.trim()) return state.clients.slice(0, 5);
+    const term = clientSearch.toLowerCase();
+    return state.clients.filter(c => {
+      return (
+        c.name.toLowerCase().includes(term) ||
+        (c.document || '').toLowerCase().includes(term) ||
+        (c.phone || '').toLowerCase().includes(term)
+      );
+    }).slice(0, 5);
+  }, [state.clients, clientSearch]);
+
+  // Close client dropdown when clicking outside
+  useEffect(() => {
+    if (!isClientDropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (clientInputRef.current && !clientInputRef.current.parentElement?.parentElement?.contains(e.target as Node)) {
+        setIsClientDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [isClientDropdownOpen]);
 
   // Search filtered products (search results dropdown/list)
   const productSearchResults = useMemo(() => {
@@ -69,26 +106,24 @@ export default function NewSaleModal({
       subtotal += item.product.price * item.quantity;
     });
 
-    // We calculate commissions/fees based on what payment method is actively allocated
-    // For split payments, we calculate the commission *proportionally* to the amount allocated to each payment method!
+    // Commissions and fees are internal costs for the store (NOT charged to the customer).
+    // We calculate them for accounting/reporting purposes only.
     state.paymentMethods.forEach(pm => {
       const allocated = payments[pm.id] || 0;
       if (allocated > 0) {
-        // Commission
         if (pm.commissionPercent > 0) {
           totalCommissions += allocated * (pm.commissionPercent / 100);
         }
-        // Flat fee
         if (pm.flatFee > 0) {
           totalFees += pm.flatFee;
         }
       }
     });
 
-    // Rounding
     totalCommissions = Math.round(totalCommissions);
 
-    const totalPayable = subtotal + totalCommissions + totalFees;
+    // The customer only pays the subtotal. Commissions/fees are store expenses.
+    const totalPayable = subtotal;
 
     return {
       subtotal,
@@ -210,7 +245,7 @@ export default function NewSaleModal({
     return cartTotals.totalPayable - paymentSum;
   }, [cartTotals.totalPayable, paymentSum]);
 
-  const { createSale, addAuditLog: storeAddAuditLog } = useAppStore();
+  const { createSale, createClient, addAuditLog: storeAddAuditLog } = useAppStore();
   const [submitting, setSubmitting] = useState(false);
 
   // Submit Sale Handler
@@ -237,8 +272,8 @@ export default function NewSaleModal({
 
     try {
       // Build Sale Object for API
-      const client = state.clients.find(c => c.id === selectedClientId);
-      const clientName = client ? client.name : 'Cliente General';
+      const client = selectedClientId ? state.clients.find(c => c.id === selectedClientId) : null;
+      const clientName = client ? client.name : undefined;
       
       const saleItems: SaleItem[] = cart.map(item => ({
         productId: item.product.id,
@@ -312,23 +347,146 @@ export default function NewSaleModal({
             </div>
 
             {/* Optional Customer Selector */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 relative">
               <label className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1">
                 <User className="h-3 w-3" />
-                Asociar Cliente (Opcional)
+                Cliente (Opcional)
               </label>
-              <select
-                value={selectedClientId}
-                onChange={(e) => setSelectedClientId(e.target.value)}
-                className="w-full px-3 py-1.5 border border-border rounded-xl text-xs bg-card focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                {state.clients.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} {c.document ? `(${c.document})` : ''}
-                  </option>
-                ))}
-              </select>
+              {selectedClientId ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-xl bg-secondary">
+                  <span className="text-xs font-semibold text-foreground flex-1">{selectedClientName}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedClientId(''); setSelectedClientName(''); setClientSearch(''); }}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <User className="absolute left-3 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    ref={clientInputRef}
+                    type="text"
+                    placeholder="Buscar cliente por nombre o documento..."
+                    value={clientSearch}
+                    onChange={(e) => { setClientSearch(e.target.value); setIsClientDropdownOpen(true); }}
+                    onFocus={() => setIsClientDropdownOpen(true)}
+                    className="w-full pl-8 pr-3 py-1.5 border border-border rounded-xl text-xs bg-card placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+              )}
+
+              {/* Client search dropdown */}
+              {isClientDropdownOpen && !selectedClientId && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden max-h-[200px] overflow-y-auto">
+                  {clientSearchResults.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedClientId(c.id);
+                        setSelectedClientName(c.name);
+                        setClientSearch('');
+                        setIsClientDropdownOpen(false);
+                      }}
+                      className="w-full text-left p-2.5 hover:bg-secondary flex items-center justify-between text-xs transition-colors border-b border-border last:border-0"
+                    >
+                      <div>
+                        <p className="font-semibold text-foreground">{c.name}</p>
+                        {c.document && <p className="text-[10px] text-muted-foreground">{c.document}</p>}
+                      </div>
+                      {c.phone && <span className="text-[10px] text-muted-foreground">{c.phone}</span>}
+                    </button>
+                  ))}
+                  {clientSearchResults.length === 0 && clientSearch.trim() && (
+                    <p className="text-xs text-muted-foreground text-center py-3 italic">Sin resultados</p>
+                  )}
+                  {/* Add new client option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsClientDropdownOpen(false);
+                      setIsNewClientFormOpen(true);
+                      setNewClientName(clientSearch);
+                    }}
+                    className="w-full text-left p-2.5 hover:bg-bento-blue-light flex items-center gap-2 text-xs font-semibold text-bento-blue transition-colors border-t border-border"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    Agregar nuevo cliente
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* New Client inline form */}
+            {isNewClientFormOpen && (
+              <div className="bg-secondary border border-border rounded-xl p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-foreground">Nuevo Cliente</h4>
+                  <button type="button" onClick={() => setIsNewClientFormOpen(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Nombre completo *"
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-border rounded-lg text-xs bg-card focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="RUT / Documento"
+                      value={newClientDocument}
+                      onChange={(e) => setNewClientDocument(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-border rounded-lg text-xs bg-card focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Teléfono"
+                      value={newClientPhone}
+                      onChange={(e) => setNewClientPhone(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-border rounded-lg text-xs bg-card focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!newClientName.trim()) return;
+                    try {
+                      await createClient({
+                        name: newClientName.trim(),
+                        document: newClientDocument || undefined,
+                        phone: newClientPhone || undefined,
+                      });
+                      // Find the newly created client in refreshed state
+                      const { data } = useAppStore.getState();
+                      const created = data.clients.find(c => c.name === newClientName.trim());
+                      if (created) {
+                        setSelectedClientId(created.id);
+                        setSelectedClientName(created.name);
+                      }
+                      setIsNewClientFormOpen(false);
+                      setNewClientName('');
+                      setNewClientDocument('');
+                      setNewClientPhone('');
+                      setClientSearch('');
+                    } catch (err: any) {
+                      toast(err.message || 'Error al crear cliente.', 'error');
+                    }
+                  }}
+                  className="w-full py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer hover:opacity-90"
+                >
+                  <Check className="h-3 w-3" />
+                  Registrar y Seleccionar
+                </button>
+              </div>
+            )}
 
             {/* Product Search & Dropdown */}
             <div className="space-y-1.5 relative">
@@ -451,23 +609,28 @@ export default function NewSaleModal({
                 <span>Neto Productos:</span>
                 <span className="font-mono">{formatMoney(cartTotals.subtotal)}</span>
               </div>
-              {cartTotals.totalCommissions > 0 && (
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Comisión Métodos:</span>
-                  <span className="font-mono">{formatMoney(cartTotals.totalCommissions)}</span>
-                </div>
-              )}
-              {cartTotals.totalFees > 0 && (
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Cargo Fijo Recargo:</span>
-                  <span className="font-mono">{formatMoney(cartTotals.totalFees)}</span>
-                </div>
-              )}
               <hr className="border-border my-1" />
               <div className="flex justify-between font-bold text-foreground text-base">
                 <span>Total a Cobrar:</span>
                 <span className="font-mono text-bento-green">{formatMoney(cartTotals.totalPayable)}</span>
               </div>
+              {(cartTotals.totalCommissions > 0 || cartTotals.totalFees > 0) && (
+                <div className="border-t border-dashed border-border pt-2 mt-2 space-y-1">
+                  <p className="text-[10px] text-muted-foreground font-semibold uppercase">Costos internos (no cobrados):</p>
+                  {cartTotals.totalCommissions > 0 && (
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Comisión método de pago:</span>
+                      <span className="font-mono">-{formatMoney(cartTotals.totalCommissions)}</span>
+                    </div>
+                  )}
+                  {cartTotals.totalFees > 0 && (
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Cargo fijo:</span>
+                      <span className="font-mono">-{formatMoney(cartTotals.totalFees)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Payment Method splitter inputs */}

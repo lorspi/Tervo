@@ -101,8 +101,8 @@ export default function PaymentMethodsView({ state, onUpdateState }: PaymentMeth
         <div className="space-y-0.5 text-xs text-muted-foreground">
           <h4 className="font-bold text-foreground">Comisiones y Costos Fijos</h4>
           <p className="leading-normal">
-            Al aplicar un método de pago con recargo, el sistema calcula de forma transparente un monto adicional a pagar para el cliente final. 
-            Por ejemplo, si pagas con Tarjeta de Crédito, puedes cobrar el recargo bancario automáticamente en la boleta.
+            Estas tarifas son costos internos de la tienda (ej: comisión bancaria por transacción con tarjeta). 
+            No se cobran al cliente. Se registran para llevar un control contable de los costos reales por método de pago.
           </p>
         </div>
       </div>

@@ -28,9 +28,6 @@ export default function ClientsView({ state, onUpdateState }: ClientsViewProps) 
   // Filter clients
   const filteredClients = useMemo(() => {
     return state.clients.filter(c => {
-      // Don't search the generic client from here, or display it cleanly
-      const isGeneric = c.id === 'c_generic';
-      
       const text = searchTerm.toLowerCase();
       const matchesSearch = 
         c.name.toLowerCase().includes(text) ||
@@ -100,11 +97,6 @@ export default function ClientsView({ state, onUpdateState }: ClientsViewProps) 
   };
 
   const handleDeleteClient = async (clientId: string, clientName: string) => {
-    if (clientId === 'c_generic') {
-      toast("No puedes eliminar el Cliente General por defecto.", 'error');
-      return;
-    }
-
     const confirmed = await confirm({ title: 'Eliminar Cliente', message: `¿Estás seguro de que deseas eliminar al cliente "${clientName}" del sistema?`, variant: 'danger' });
     if (!confirmed) return;
 
@@ -150,13 +142,10 @@ export default function ClientsView({ state, onUpdateState }: ClientsViewProps) 
       {/* Clients Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredClients.map((client) => {
-          const isGeneric = client.id === 'c_generic';
           return (
             <div 
               key={client.id} 
-              className={`bg-card border border-border rounded-xl p-5 shadow-xs relative flex flex-col justify-between group hover:border-slate-300 transition-colors ${
-                isGeneric ? 'bg-secondary/50 border-dashed' : ''
-              }`}
+              className="bg-card border border-border rounded-xl p-5 shadow-xs relative flex flex-col justify-between group hover:border-slate-300 transition-colors"
             >
               <div className="space-y-4">
                 {/* Header Card */}
@@ -167,12 +156,6 @@ export default function ClientsView({ state, onUpdateState }: ClientsViewProps) 
                       <p className="text-xs text-muted-foreground font-mono mt-0.5">RUT/DNI: {client.document}</p>
                     )}
                   </div>
-                  
-                  {isGeneric && (
-                    <span className="text-[10px] bg-secondary text-muted-foreground border border-border px-2 py-0.5 rounded-full font-semibold">
-                      PREDETERMINADO
-                    </span>
-                  )}
                 </div>
 
                 {/* Contact details */}
@@ -204,15 +187,13 @@ export default function ClientsView({ state, onUpdateState }: ClientsViewProps) 
                   <Edit2 className="h-3.5 w-3.5" />
                 </button>
                 
-                {!isGeneric && (
-                  <button
-                    onClick={() => handleDeleteClient(client.id, client.name)}
-                    className="p-1.5 hover:bg-destructive/10 text-destructive rounded-xl transition-colors cursor-pointer"
-                    title="Eliminar cliente"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
+                <button
+                  onClick={() => handleDeleteClient(client.id, client.name)}
+                  className="p-1.5 hover:bg-destructive/10 text-destructive rounded-xl transition-colors cursor-pointer"
+                  title="Eliminar cliente"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           );

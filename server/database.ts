@@ -186,10 +186,6 @@ function seedDefaultData() {
   db.run(`INSERT INTO payment_methods (id, name, commission_percent, flat_fee, active) VALUES (?, ?, ?, ?, ?)`,
     ['pm3', 'Transferencia', 0, 0, 1]);
 
-  // Default client
-  db.run(`INSERT INTO clients (id, name, document, phone, email, address) VALUES (?, ?, ?, ?, ?, ?)`,
-    ['c_generic', 'Cliente General', '', '', '', '']);
-
   // Default config
   db.run(`INSERT INTO config (key, value) VALUES (?, ?)`, ['storeName', 'Mi Tienda POS']);
   db.run(`INSERT INTO config (key, value) VALUES (?, ?)`, ['storeInfo', 'Dirección de tu tienda\nTeléfono: +56 9 0000 0000\nBoleta de Venta']);
