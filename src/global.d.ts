@@ -1,2 +1,9 @@
 /// <reference types="vite/client" />
-// Global type extensions (if needed)
+
+/** Build-time version string injected by vite.config.ts */
+declare const __APP_VERSION__: string;
+
+declare module '*.md?raw' {
+  const content: string;
+  export default content;
+}

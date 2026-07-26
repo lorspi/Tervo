@@ -1,9 +1,15 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { readFileSync } from 'fs';
 import { defineConfig } from 'vite';
 
+const APP_VERSION = readFileSync('public/version.txt', 'utf-8').trim();
+
 export default defineConfig(() => ({
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

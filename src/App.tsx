@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   LayoutDashboard, FileText, ShoppingCart, Package, Users,
-  CreditCard, Settings, LogOut, Lock, Unlock, Menu, X, Wifi, WifiOff
+  CreditCard, Settings, LogOut, Lock, Unlock, Menu, X, Wifi, WifiOff, Info
 } from 'lucide-react';
 
 import { useAppStore, applyTheme } from './store';
@@ -16,10 +16,11 @@ import ClientsView from './components/ClientsView';
 import PaymentMethodsView from './components/PaymentMethodsView';
 import UsersView from './components/UsersView';
 import SettingsView from './components/SettingsView';
+import AboutTervo from './components/AboutTervo';
 import OpenCloseSessionModal from './components/OpenCloseSessionModal';
 import NewSaleModal from './components/NewSaleModal';
 
-type ActiveView = 'dashboard' | 'reports' | 'sales' | 'inventory' | 'clients' | 'payments' | 'users' | 'settings';
+type ActiveView = 'dashboard' | 'reports' | 'sales' | 'inventory' | 'clients' | 'payments' | 'users' | 'settings' | 'about';
 
 export default function App() {
   const {
@@ -139,6 +140,7 @@ export default function App() {
         { id: 'settings', label: 'Configuración', icon: Settings },
       );
     }
+    items.push({ id: 'about', label: 'Acerca de Tervo', icon: Info });
     return items;
   }, [currentUser]);
 
@@ -153,6 +155,7 @@ export default function App() {
       case 'payments': return <PaymentMethodsView state={state} onUpdateState={() => {}} />;
       case 'users': return <UsersView state={state} onUpdateState={() => {}} />;
       case 'settings': return <SettingsView state={state} onUpdateState={() => {}} />;
+      case 'about': return <AboutTervo />;
       default: return <DashboardView state={state} />;
     }
   };
@@ -378,6 +381,7 @@ export default function App() {
                 {activeView === 'payments' && "Métodos de Pago"}
                 {activeView === 'users' && "Usuarios y Cajeros"}
                 {activeView === 'settings' && "Configuración"}
+                {activeView === 'about' && "Acerca de Tervo"}
               </h1>
               <p className="text-[10px] text-muted-foreground font-medium">
                 {activeSession ? `Caja Abierta` : 'Caja Cerrada'} • Conectado al servidor
