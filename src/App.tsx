@@ -265,21 +265,38 @@ export default function App() {
           lg:translate-x-0 lg:static lg:h-auto
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
-          <div className="flex-1 flex flex-col p-5 space-y-5 overflow-y-auto">
+          <div className="flex-1 flex flex-col px-3 pt-3 pb-3 overflow-y-auto">
             {/* Brand */}
-            <div className="flex items-center gap-3 pb-4 border-b border-border">
+            <div className="flex items-center gap-3 pb-5 mb-2">
               <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0">
                 <img src="/icon.svg" alt="Logo" className="h-9 w-9" />
               </div>
               <div className="min-w-0">
-                <h1 className="font-bold text-sm leading-snug truncate font-heading">{data.config.storeName}</h1>
-                <span className="text-[10px] text-muted-foreground font-mono tracking-widest">POS EN RED</span>
+                <h1 className="font-bold text-sm leading-none truncate font-heading">{data.config.storeName}</h1>
+                <span className="text-[9px] text-muted-foreground font-mono tracking-widest leading-none mt-0.5 block">POS EN RED</span>
               </div>
             </div>
 
+            {/* User session card */}
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-secondary border border-border mb-6">
+              <div className="w-8 h-8 rounded-full bg-bento-blue flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                {currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-foreground truncate">{currentUser.name}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-1.5 hover:bg-accent text-muted-foreground hover:text-destructive rounded-lg transition-colors cursor-pointer"
+                title="Cerrar Sesión"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+
             {/* Cash session status */}
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold text-muted-foreground tracking-widest">ESTADO DE CAJA</p>
+            <div className="space-y-2 mb-6">
+              <p className="text-[10px] font-bold text-muted-foreground tracking-widest px-1">ESTADO DE CAJA</p>
               {activeSession ? (
                 <div className="bg-bento-green-light border border-bento-green/20 p-3 rounded-xl space-y-2">
                   <div className="flex items-center gap-1.5 text-bento-green text-xs font-semibold">
@@ -310,8 +327,8 @@ export default function App() {
             </div>
 
             {/* Navigation */}
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-bold text-muted-foreground tracking-widest">MÓDULOS</p>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-muted-foreground tracking-widest px-1 mb-2">MÓDULOS</p>
               <nav className="space-y-1">
                 {menuItems.map((item) => {
                   const Icon = item.icon;
@@ -323,7 +340,7 @@ export default function App() {
                         setActiveView(item.id as ActiveView);
                         setIsMobileMenuOpen(false);
                       }}
-                      className={`w-full flex items-center gap-3 py-2 px-3 rounded-xl text-xs font-medium transition-all duration-300 cursor-pointer ${
+                      className={`w-full flex items-center gap-3 py-2.5 px-3 rounded-xl text-xs font-medium transition-all duration-300 cursor-pointer ${
                         isActive
                           ? 'bg-primary text-primary-foreground font-semibold shadow-card'
                           : 'text-muted-foreground hover:text-foreground hover:bg-accent'
@@ -336,28 +353,6 @@ export default function App() {
                 })}
               </nav>
             </div>
-          </div>
-
-          {/* User info footer */}
-          <div className="p-4 border-t border-border flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-bento-blue flex items-center justify-center text-xs font-bold text-white shrink-0">
-                {currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-foreground truncate">{currentUser.name}</p>
-                <p className="text-[10px] text-muted-foreground font-bold">
-                  {currentUser.role === 'admin' ? 'Admin' : 'Vendedor'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="p-1.5 hover:bg-accent text-muted-foreground hover:text-destructive rounded-lg transition-colors cursor-pointer"
-              title="Cerrar Sesión"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
           </div>
         </aside>
 
