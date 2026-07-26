@@ -6,6 +6,7 @@ import {
 import Portal from './Portal';
 import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
+import { useModalDismiss } from '../hooks/useModalDismiss';
 
 interface InventoryViewProps {
   state: SystemState;
@@ -30,6 +31,11 @@ export default function InventoryView({ state, onUpdateState }: InventoryViewPro
   const [formStock, setFormStock] = useState<number>(0);
   const [formCost, setFormCost] = useState<number>(0);
   const [formPrice, setFormPrice] = useState<number>(0);
+  const [formDirty, setFormDirty] = useState(false);
+
+  const isModalOpen = !!(editingProduct || isCreateOpen);
+  const closeModal = () => { setEditingProduct(null); setIsCreateOpen(false); setFormDirty(false); };
+  const { shaking, attemptClose } = useModalDismiss(isModalOpen, closeModal, formDirty);
 
   // CSV file ref
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -410,10 +416,12 @@ export default function InventoryView({ state, onUpdateState }: InventoryViewPro
       {/* CREATE OR EDIT MODAL */}
       {(editingProduct || isCreateOpen) && (
         <Portal>
-        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4" onClick={attemptClose}>
           <form 
             onSubmit={handleSaveProduct}
-            className="bg-card rounded-xl shadow-card-hover border border-border max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]"
+            onChange={() => setFormDirty(true)}
+            onClick={(e) => e.stopPropagation()}
+            className={`bg-card rounded-xl shadow-card-hover border border-border max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh] ${shaking ? 'animate-shake' : ''}`}
           >
             <div className="p-4 border-b border-border bg-secondary flex items-center justify-between">
               <h3 className="font-bold text-foreground">
@@ -421,7 +429,7 @@ export default function InventoryView({ state, onUpdateState }: InventoryViewPro
               </h3>
               <button 
                 type="button" 
-                onClick={() => { setEditingProduct(null); setIsCreateOpen(false); }} 
+                onClick={closeModal} 
                 className="text-muted-foreground hover:text-muted-foreground text-lg cursor-pointer"
               >
                 &times;
@@ -538,7 +546,7 @@ export default function InventoryView({ state, onUpdateState }: InventoryViewPro
             <div className="p-4 border-t border-border bg-secondary flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => { setEditingProduct(null); setIsCreateOpen(false); }}
+                onClick={closeModal}
                 className="px-4 py-2 border border-border rounded-xl text-xs font-semibold text-muted-foreground hover:bg-secondary transition-colors"
               >
                 Cancelar

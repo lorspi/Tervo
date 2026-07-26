@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { CheckCircle2, XCircle, AlertTriangle, Info } from 'lucide-react';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -52,6 +52,19 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
     setConfirmState(null);
   };
 
+  // Close confirm dialog with ESC key
+  useEffect(() => {
+    if (!confirmState) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleConfirm(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [confirmState]);
+
   const getToastStyles = (type: ToastType) => {
     switch (type) {
       case 'success': return 'border-bento-green text-bento-green';
@@ -89,8 +102,8 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
 
       {/* Confirm Dialog */}
       {confirmState && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-foreground/20 backdrop-blur-[2px] animate-fade-in">
-          <div className="bg-card border border-border rounded-2xl shadow-card-hover w-full max-w-sm mx-4 overflow-hidden">
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-foreground/20 backdrop-blur-[2px] animate-fade-in" onClick={() => handleConfirm(false)}>
+          <div className="bg-card border border-border rounded-2xl shadow-card-hover w-full max-w-sm mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
               <h2 className="text-sm font-bold text-foreground font-heading">{confirmState.title}</h2>
             </div>

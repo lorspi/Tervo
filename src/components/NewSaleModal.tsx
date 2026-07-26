@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
+import { useModalDismiss } from '../hooks/useModalDismiss';
 
 interface NewSaleModalProps {
   state: SystemState;
@@ -39,6 +40,10 @@ export default function NewSaleModal({
 
   // Split payments state: methodId -> amount paid
   const [payments, setPayments] = useState<Record<string, number>>({});
+
+  // Dirty state: cart has items
+  const isDirty = cart.length > 0;
+  const { shaking, attemptClose } = useModalDismiss(isOpen, onClose, isDirty);
 
   // Reset modal when opened/closed
   useEffect(() => {
@@ -324,8 +329,8 @@ export default function NewSaleModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-xl shadow-2xl border border-border max-w-4xl w-full overflow-hidden flex flex-col md:flex-row h-[90vh]">
+    <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4" onClick={attemptClose}>
+      <div onClick={(e) => e.stopPropagation()} className={`bg-card rounded-xl shadow-2xl border border-border max-w-4xl w-full overflow-hidden flex flex-col md:flex-row h-[90vh] ${shaking ? 'animate-shake' : ''}`}>
         
         {/* LEFT COLUMN: PRODUCT SEARCH & CART LIST */}
         <div className="flex-1 p-6 flex flex-col justify-between overflow-y-auto border-r border-border">

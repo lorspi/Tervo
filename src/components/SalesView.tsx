@@ -7,6 +7,7 @@ import {
 import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
 import Portal from './Portal';
+import { useModalDismiss } from '../hooks/useModalDismiss';
 
 interface SalesViewProps {
   state: SystemState;
@@ -31,6 +32,11 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
   const [newClientPhone, setNewClientPhone] = useState('');
   const editClientInputRef = useRef<HTMLInputElement>(null);
   const [editItems, setEditItems] = useState<Sale['items']>([]);
+  const [formDirty, setFormDirty] = useState(false);
+
+  const isEditModalOpen = !!editingSale;
+  const closeEditModal = () => { setEditingSale(null); setFormDirty(false); };
+  const { shaking, attemptClose } = useModalDismiss(isEditModalOpen, closeEditModal, formDirty);
 
   // Find latest session
   const latestSession = useMemo(() => {
@@ -97,6 +103,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
 
   // Edit sale items counters
   const handleUpdateEditItemQty = (productId: string, increment: number) => {
+    setFormDirty(true);
     setEditItems(prev => prev.map(item => {
       if (item.productId === productId) {
         const newQty = Math.max(1, item.quantity + increment);
@@ -116,6 +123,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
       toast("La venta debe contener al menos 1 producto.", 'warning');
       return;
     }
+    setFormDirty(true);
     setEditItems(prev => prev.filter(item => item.productId !== productId));
   };
 
@@ -274,11 +282,11 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
       {/* EDIT SALE MODAL */}
       {editingSale && (
         <Portal>
-        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl shadow-card-hover border border-border max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4" onClick={attemptClose}>
+          <div onClick={(e) => e.stopPropagation()} className={`bg-card rounded-xl shadow-card-hover border border-border max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh] ${shaking ? 'animate-shake' : ''}`}>
             <div className="p-4 border-b border-border bg-secondary flex items-center justify-between">
               <h3 className="font-bold text-foreground">Editar Venta: {editingSale.code}</h3>
-              <button onClick={() => setEditingSale(null)} className="text-muted-foreground hover:text-muted-foreground">&times;</button>
+              <button onClick={closeEditModal} className="text-muted-foreground hover:text-muted-foreground">&times;</button>
             </div>
             
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
@@ -291,7 +299,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
                     <span className="text-xs font-semibold text-foreground flex-1">{editClientName}</span>
                     <button
                       type="button"
-                      onClick={() => { setEditClient(''); setEditClientName(''); setEditClientSearch(''); }}
+                      onClick={() => { setEditClient(''); setEditClientName(''); setEditClientSearch(''); setFormDirty(true); }}
                       className="text-muted-foreground hover:text-destructive"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -324,6 +332,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
                           setEditClientName(c.name);
                           setEditClientSearch('');
                           setIsEditClientDropdownOpen(false);
+                          setFormDirty(true);
                         }}
                         className="w-full text-left p-2.5 hover:bg-secondary flex items-center justify-between text-xs transition-colors border-b border-border last:border-0"
                       >
@@ -486,7 +495,7 @@ export default function SalesView({ state, onUpdateState }: SalesViewProps) {
             <div className="p-4 border-t border-border bg-secondary flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setEditingSale(null)}
+                onClick={closeEditModal}
                 className="px-4 py-2 border border-border rounded-xl text-xs font-semibold text-muted-foreground hover:bg-secondary transition-colors"
               >
                 Cancelar

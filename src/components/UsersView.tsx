@@ -4,6 +4,7 @@ import { Plus, Edit2, Check, UserPlus, Shield, UserX, ShieldCheck } from 'lucide
 import { useAppStore } from '../store';
 import { useUI } from './UIProvider';
 import Portal from './Portal';
+import { useModalDismiss } from '../hooks/useModalDismiss';
 
 interface UsersViewProps {
   state: SystemState;
@@ -23,6 +24,11 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
   const [formPassword, setFormPassword] = useState('');
   const [formRole, setFormRole] = useState<UserRole>('vendedor');
   const [formActive, setFormActive] = useState(true);
+  const [formDirty, setFormDirty] = useState(false);
+
+  const isModalOpen = !!(editingUser || isCreateOpen);
+  const closeModal = () => { setEditingUser(null); setIsCreateOpen(false); setFormDirty(false); };
+  const { shaking, attemptClose } = useModalDismiss(isModalOpen, closeModal, formDirty);
 
   const handleOpenEdit = (user: User) => {
     setEditingUser(user);
@@ -199,10 +205,12 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
       {/* CREATE OR EDIT MODAL */}
       {(editingUser || isCreateOpen) && (
         <Portal>
-        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-[2px] flex items-center justify-center z-50 p-4" onClick={attemptClose}>
           <form 
             onSubmit={handleSaveUser}
-            className="bg-card rounded-xl shadow-card-hover border border-border max-w-sm w-full overflow-hidden flex flex-col"
+            onChange={() => setFormDirty(true)}
+            onClick={(e) => e.stopPropagation()}
+            className={`bg-card rounded-xl shadow-card-hover border border-border max-w-sm w-full overflow-hidden flex flex-col ${shaking ? 'animate-shake' : ''}`}
           >
             <div className="p-4 border-b border-border bg-secondary flex items-center justify-between">
               <h3 className="font-bold text-foreground">
@@ -210,7 +218,7 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
               </h3>
               <button 
                 type="button" 
-                onClick={() => { setEditingUser(null); setIsCreateOpen(false); }} 
+                onClick={closeModal} 
                 className="text-muted-foreground hover:text-muted-foreground text-lg cursor-pointer"
               >
                 &times;
@@ -287,7 +295,7 @@ export default function UsersView({ state, onUpdateState }: UsersViewProps) {
             <div className="p-4 border-t border-border bg-secondary flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => { setEditingUser(null); setIsCreateOpen(false); }}
+                onClick={closeModal}
                 className="px-4 py-2 border border-border rounded-xl text-xs font-semibold text-muted-foreground hover:bg-secondary transition-colors"
               >
                 Cancelar

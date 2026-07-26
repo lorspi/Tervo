@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { SystemState, CashSession } from '../types';
 import { Check, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../store';
+import { useModalDismiss } from '../hooks/useModalDismiss';
 
 interface OpenCloseSessionModalProps {
   state: SystemState;
@@ -28,6 +29,28 @@ export default function OpenCloseSessionModal({
     if (!state.currentSessionId) return null;
     return state.cashSessions.find(s => s.id === state.currentSessionId) || null;
   }, [state.cashSessions, state.currentSessionId]);
+
+  // Determine if form has been modified (dirty state)
+  const isDirty = useMemo(() => {
+    if (isOpenModal) {
+      return initialCash !== 10000;
+    }
+    if (isCloseModal && activeSession) {
+      // Check if realAmounts differ from the pre-filled expected values
+      return state.paymentMethods.some(pm => {
+        const expected = activeSession.expectedAmounts[pm.id] || 0;
+        const real = realAmounts[pm.id];
+        return real !== undefined && real !== expected;
+      });
+    }
+    return false;
+  }, [isOpenModal, isCloseModal, initialCash, realAmounts, activeSession, state.paymentMethods]);
+
+  const { shaking, attemptClose } = useModalDismiss(
+    isOpenModal || isCloseModal,
+    onClose,
+    isDirty
+  );
 
   const handleOpenCashBox = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,13 +114,14 @@ export default function OpenCloseSessionModal({
   if (!isOpenModal && !isCloseModal) return null;
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-foreground/20 backdrop-blur-[2px] animate-fade-in p-4">
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-foreground/20 backdrop-blur-[2px] animate-fade-in p-4" onClick={attemptClose}>
 
       {/* OPEN CASH BOX */}
       {isOpenModal && (
         <form
           onSubmit={handleOpenCashBox}
-          className="bg-card border border-border rounded-2xl shadow-card-hover max-w-sm w-full overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+          className={`bg-card border border-border rounded-2xl shadow-card-hover max-w-sm w-full overflow-hidden ${shaking ? 'animate-shake' : ''}`}
         >
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <h3 className="text-sm font-bold text-foreground font-heading">Apertura de Caja</h3>
@@ -143,7 +167,8 @@ export default function OpenCloseSessionModal({
       {isCloseModal && activeSession && (
         <form
           onSubmit={handleCloseCashBox}
-          className="bg-card border border-border rounded-2xl shadow-card-hover max-w-md w-full overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+          className={`bg-card border border-border rounded-2xl shadow-card-hover max-w-md w-full overflow-hidden ${shaking ? 'animate-shake' : ''}`}
         >
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <h3 className="text-sm font-bold text-foreground font-heading">Cierre de Caja</h3>

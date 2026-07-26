@@ -127,7 +127,7 @@ export default function App() {
   const menuItems = useMemo(() => {
     const role = currentUser?.role;
     const items = [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
       { id: 'reports', label: 'Reportes y Cierres', icon: FileText },
       { id: 'sales', label: 'Registro Ventas', icon: ShoppingCart },
       { id: 'inventory', label: 'Inventario', icon: Package },
@@ -373,7 +373,7 @@ export default function App() {
           <header className="h-14 border-b border-border flex items-center justify-between px-4 sm:px-6 shrink-0 print:hidden bg-card">
             <div>
               <h1 className="text-sm font-bold text-foreground font-heading">
-                {activeView === 'dashboard' && "Dashboard"}
+                {activeView === 'dashboard' && "Inicio"}
                 {activeView === 'reports' && "Reportes e Historial"}
                 {activeView === 'sales' && "Registro de Ventas"}
                 {activeView === 'inventory' && "Inventario"}
