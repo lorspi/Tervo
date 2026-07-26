@@ -70,6 +70,22 @@ export default function App() {
     return () => clearInterval(interval);
   }, [currentUser]);
 
+  // Keyboard shortcut: F2 to open new sale
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2' && currentUser) {
+        e.preventDefault();
+        if (!currentSessionId) {
+          setIsOpenSessionOpen(true);
+        } else {
+          setIsNewSaleOpen(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentUser, currentSessionId]);
+
   // Active cash session
   const activeSession = useMemo(() => {
     if (!currentSessionId) return null;
@@ -396,6 +412,7 @@ export default function App() {
                 <ShoppingCart className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">NUEVA VENTA</span>
                 <span className="sm:hidden">VENTA</span>
+                <kbd className="hidden sm:inline ml-1 px-1.5 py-0.5 bg-white/20 rounded text-[9px] font-mono">F2</kbd>
               </button>
 
               <div className="hidden lg:block">
