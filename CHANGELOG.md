@@ -1,18 +1,5 @@
 # Changelog
 
-## [0.1.1] — 2026-07-26
-
-### Changed
-
-- **Sidebar: "Dashboard" renombrado a "Inicio"**
-  El primer item del menú lateral ahora dice "Inicio" en lugar de "Dashboard".
-
-- **Modales cerrables con clic en overlay y tecla ESC**
-  Todos los modales del sistema ahora se pueden cerrar haciendo clic fuera o presionando Escape, siempre que no se hayan modificado campos del formulario.
-
-- **Protección contra cierre accidental en modales con cambios**
-  Si el usuario ha modificado campos dentro de un modal, el clic en el overlay y ESC quedan bloqueados. El modal vibra visualmente para indicar que hay cambios sin guardar. Solo es posible cerrar mediante los botones X o Cancelar, que descartan los cambios explícitamente.
-
 ## [0.1.0] — 2026-07-26
 
 ### Added
@@ -60,3 +47,16 @@
 
 - **Eliminado el cliente genérico predeterminado**
   Ya no existe "Cliente General" como registro obligatorio. Las ventas sin cliente simplemente no tienen uno asociado.
+
+## [0.1.1] — 2026-07-26
+
+### Changed
+
+- **Sidebar: "Dashboard" renombrado a "Inicio"**
+  El primer item del menú lateral ahora dice "Inicio" en lugar de "Dashboard".
+
+- **Modales cerrables con clic en overlay y tecla ESC**
+  Todos los modales del sistema ahora se pueden cerrar haciendo clic fuera o presionando Escape, siempre que no se hayan modificado campos del formulario.
+
+- **Protección contra cierre accidental en modales con cambios**
+  Si el usuario ha modificado campos dentro de un modal, el clic en el overlay y ESC quedan bloqueados. El modal vibra visualmente para indicar que hay cambios sin guardar. Solo es posible cerrar mediante los botones X o Cancelar, que descartan los cambios explícitamente.
