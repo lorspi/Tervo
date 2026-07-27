@@ -11,6 +11,12 @@ Un computador actúa como servidor central con todos los datos de la tienda alma
 
 No requiere internet, no depende de servicios en la nube y no tiene suscripciones. Los datos son tuyos y permanecen en tu red.
 
+## Capturas de pantalla
+
+<img src="./capturas/0.1.1/dashboard.webp" alt="Dashboard del administrador" width="100%"/>
+<img src="./capturas/0.1.1/nueva-venta.webp" alt="Registro de nueva venta" width="100%"/>
+<img src="./capturas/0.1.1/inventario.webp" alt="Gestión de inventario" width="100%"/>
+
 ## Características principales
 
 - **Servidor centralizado** — Un solo computador almacena toda la base de datos SQLite.
@@ -83,6 +89,12 @@ Esto genera una carpeta `release/` lista para copiar a cualquier máquina con No
 
 ## Licencia
 Tervo está licenciado bajo la Licencia Apache 2.0. Ver el archivo [LICENSE](./LICENSE) para más detalles.
+
+## Implementación y personalización
+
+¿Te interesa implementar Tervo en tu negocio o necesitas adaptarlo a requerimientos específicos? Ofrezco servicios de implementación, configuración y desarrollo a medida.
+
+📩 [Conversemos sobre tu proyecto → lorspi.com](https://lorspi.com)
 
 ## Apoya al creador
 ¿Te gusta mi proyecto? Invítame a un café
